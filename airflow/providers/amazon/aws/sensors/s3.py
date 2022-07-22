@@ -111,12 +111,12 @@ class S3KeySensor(BaseSensorOperator):
                 return False
 
             # Reduce the set of metadata to size only
-            files = list(map(lambda f: {'Size': f['Size']}, key_matches))
+            files = list(map(lambda f: {'Size': f['Size'], 'LastModified': f['LastModified']}, key_matches))
         else:
             obj = self.get_hook().head_object(key, bucket_name)
             if obj is None:
                 return False
-            files = [{'Size': obj['ContentLength']}]
+            files = [{'Size': obj['ContentLength'], 'LastModified': obj['LastModified']}]
 
         if self.check_fn is not None:
             return self.check_fn(files)
