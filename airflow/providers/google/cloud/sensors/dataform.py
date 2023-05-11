@@ -16,7 +16,9 @@
 # specific language governing permissions and limitations
 # under the License.
 """This module contains a Google Cloud Dataform sensor."""
-from typing import TYPE_CHECKING, Iterable, Optional, Sequence, Set, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Iterable, Sequence
 
 from airflow.exceptions import AirflowException
 from airflow.providers.google.cloud.hooks.dataform import DataformHook
@@ -40,10 +42,6 @@ class DataformWorkflowInvocationStateSensor(BaseSensorOperator):
         https://cloud.google.com/python/docs/reference/dataform/latest/google.cloud.dataform_v1beta1.types.WorkflowInvocation.State
     :param failure_statuses: State that will terminate the sensor with an exception
     :param gcp_conn_id: The connection ID to use connecting to Google Cloud.
-    :param delegate_to: The account to impersonate using domain-wide delegation of authority,
-        if any. For this to work, the service account making the request must have
-        domain-wide delegation enabled. See:
-        https://developers.google.com/identity/protocols/oauth2/service-account#delegatingauthority
     :param impersonation_chain: Optional service account to impersonate using short-term
         credentials, or chained list of accounts required to get the access_token
         of the last account in the list, which will be impersonated in the request.
@@ -54,7 +52,7 @@ class DataformWorkflowInvocationStateSensor(BaseSensorOperator):
         account from the list granting this role to the originating account (templated).
     """
 
-    template_fields: Sequence[str] = ('workflow_invocation_id',)
+    template_fields: Sequence[str] = ("workflow_invocation_id",)
 
     def __init__(
         self,
@@ -63,11 +61,10 @@ class DataformWorkflowInvocationStateSensor(BaseSensorOperator):
         region: str,
         repository_id: str,
         workflow_invocation_id: str,
-        expected_statuses: Union[Set[int], int],
-        failure_statuses: Optional[Iterable[int]] = None,
-        gcp_conn_id: str = 'google_cloud_default',
-        delegate_to: Optional[str] = None,
-        impersonation_chain: Optional[Union[str, Sequence[str]]] = None,
+        expected_statuses: set[int] | int,
+        failure_statuses: Iterable[int] | None = None,
+        gcp_conn_id: str = "google_cloud_default",
+        impersonation_chain: str | Sequence[str] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -80,14 +77,12 @@ class DataformWorkflowInvocationStateSensor(BaseSensorOperator):
         self.project_id = project_id
         self.region = region
         self.gcp_conn_id = gcp_conn_id
-        self.delegate_to = delegate_to
         self.impersonation_chain = impersonation_chain
-        self.hook: Optional[DataformHook] = None
+        self.hook: DataformHook | None = None
 
-    def poke(self, context: 'Context') -> bool:
+    def poke(self, context: Context) -> bool:
         self.hook = DataformHook(
             gcp_conn_id=self.gcp_conn_id,
-            delegate_to=self.delegate_to,
             impersonation_chain=self.impersonation_chain,
         )
 

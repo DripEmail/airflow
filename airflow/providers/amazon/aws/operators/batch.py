@@ -14,28 +14,22 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
-
 """
 An Airflow operator for AWS Batch services
 
 .. seealso::
 
-    - http://boto3.readthedocs.io/en/latest/guide/configuration.html
-    - http://boto3.readthedocs.io/en/latest/reference/services/batch.html
+    - https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
+    - https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch.html
     - https://docs.aws.amazon.com/batch/latest/APIReference/Welcome.html
 """
-import sys
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
+from __future__ import annotations
 
-from airflow.providers.amazon.aws.utils import trim_none_values
+import warnings
+from typing import TYPE_CHECKING, Any, Sequence
 
-if sys.version_info >= (3, 8):
-    from functools import cached_property
-else:
-    from cached_property import cached_property
-
-from airflow.exceptions import AirflowException
+from airflow.compat.functools import cached_property
+from airflow.exceptions import AirflowException, AirflowProviderDeprecationWarning
 from airflow.models import BaseOperator
 from airflow.providers.amazon.aws.hooks.batch_client import BatchClientHook
 from airflow.providers.amazon.aws.links.batch import (
@@ -44,6 +38,7 @@ from airflow.providers.amazon.aws.links.batch import (
     BatchJobQueueLink,
 )
 from airflow.providers.amazon.aws.links.logs import CloudWatchEventsLink
+from airflow.providers.amazon.aws.utils import trim_none_values
 
 if TYPE_CHECKING:
     from airflow.utils.context import Context
@@ -58,35 +53,30 @@ class BatchOperator(BaseOperator):
         :ref:`howto/operator:BatchOperator`
 
     :param job_name: the name for the job that will run on AWS Batch (templated)
-
     :param job_definition: the job definition name on AWS Batch
-
     :param job_queue: the queue name on AWS Batch
-
-    :param overrides: the `containerOverrides` parameter for boto3 (templated)
-
+    :param overrides: DEPRECATED, use container_overrides instead with the same value.
+    :param container_overrides: the `containerOverrides` parameter for boto3 (templated)
+    :param node_overrides: the `nodeOverrides` parameter for boto3 (templated)
+    :param share_identifier: The share identifier for the job. Don't specify this parameter if the job queue
+        doesn't have a scheduling policy.
+    :param scheduling_priority_override: The scheduling priority for the job.
+        Jobs with a higher scheduling priority are scheduled before jobs with a lower scheduling priority.
+        This overrides any scheduling priority in the job definition
     :param array_properties: the `arrayProperties` parameter for boto3
-
     :param parameters: the `parameters` for boto3 (templated)
-
     :param job_id: the job ID, usually unknown (None) until the
         submit_job operation gets the jobId defined by AWS Batch
-
     :param waiters: an :py:class:`.BatchWaiters` object (see note below);
         if None, polling is used with max_retries and status_retries.
-
     :param max_retries: exponential back-off retries, 4200 = 48 hours;
         polling is only used when waiters is None
-
     :param status_retries: number of HTTP retries to get job status, 10;
         polling is only used when waiters is None
-
     :param aws_conn_id: connection id of AWS credentials / region name. If None,
         credential boto3 strategy will be used.
-
     :param region_name: region name to use in AWS Hook.
         Override the region_name in connection (if provided)
-
     :param tags: collection of tags to apply to the AWS Batch job submission
         if None, no tags are submitted
 
@@ -100,15 +90,25 @@ class BatchOperator(BaseOperator):
     """
 
     ui_color = "#c3dae0"
-    arn = None  # type: Optional[str]
+    arn: str | None = None
     template_fields: Sequence[str] = (
+        "job_id",
         "job_name",
-        "job_queue",
         "job_definition",
-        "overrides",
+        "job_queue",
+        "container_overrides",
+        "array_properties",
+        "node_overrides",
         "parameters",
+        "waiters",
+        "tags",
+        "wait_for_completion",
     )
-    template_fields_renderers = {"overrides": "json", "parameters": "json"}
+    template_fields_renderers = {
+        "container_overrides": "json",
+        "parameters": "json",
+        "node_overrides": "json",
+    }
 
     @property
     def operator_extra_links(self):
@@ -127,16 +127,20 @@ class BatchOperator(BaseOperator):
         job_name: str,
         job_definition: str,
         job_queue: str,
-        overrides: dict,
-        array_properties: Optional[dict] = None,
-        parameters: Optional[dict] = None,
-        job_id: Optional[str] = None,
-        waiters: Optional[Any] = None,
-        max_retries: Optional[int] = None,
-        status_retries: Optional[int] = None,
-        aws_conn_id: Optional[str] = None,
-        region_name: Optional[str] = None,
-        tags: Optional[dict] = None,
+        overrides: dict | None = None,  # deprecated
+        container_overrides: dict | None = None,
+        array_properties: dict | None = None,
+        node_overrides: dict | None = None,
+        share_identifier: str | None = None,
+        scheduling_priority_override: int | None = None,
+        parameters: dict | None = None,
+        job_id: str | None = None,
+        waiters: Any | None = None,
+        max_retries: int | None = None,
+        status_retries: int | None = None,
+        aws_conn_id: str | None = None,
+        region_name: str | None = None,
+        tags: dict | None = None,
         wait_for_completion: bool = True,
         **kwargs,
     ):
@@ -146,20 +150,48 @@ class BatchOperator(BaseOperator):
         self.job_name = job_name
         self.job_definition = job_definition
         self.job_queue = job_queue
-        self.overrides = overrides or {}
-        self.array_properties = array_properties or {}
+
+        self.container_overrides = container_overrides
+        # handle `overrides` deprecation in favor of `container_overrides`
+        if overrides:
+            if container_overrides:
+                # disallow setting both old and new params
+                raise AirflowException(
+                    "'container_overrides' replaces the 'overrides' parameter. "
+                    "You cannot specify both. Please remove assignation to the deprecated 'overrides'."
+                )
+            self.container_overrides = overrides
+            warnings.warn(
+                "Parameter `overrides` is deprecated, Please use `container_overrides` instead.",
+                AirflowProviderDeprecationWarning,
+                stacklevel=2,
+            )
+
+        self.node_overrides = node_overrides
+        self.share_identifier = share_identifier
+        self.scheduling_priority_override = scheduling_priority_override
+        self.array_properties = array_properties
         self.parameters = parameters or {}
         self.waiters = waiters
         self.tags = tags or {}
         self.wait_for_completion = wait_for_completion
-        self.hook = BatchClientHook(
-            max_retries=max_retries,
-            status_retries=status_retries,
-            aws_conn_id=aws_conn_id,
-            region_name=region_name,
+
+        # params for hook
+        self.max_retries = max_retries
+        self.status_retries = status_retries
+        self.aws_conn_id = aws_conn_id
+        self.region_name = region_name
+
+    @cached_property
+    def hook(self) -> BatchClientHook:
+        return BatchClientHook(
+            max_retries=self.max_retries,
+            status_retries=self.status_retries,
+            aws_conn_id=self.aws_conn_id,
+            region_name=self.region_name,
         )
 
-    def execute(self, context: 'Context'):
+    def execute(self, context: Context):
         """
         Submit and monitor an AWS Batch job
 
@@ -176,7 +208,7 @@ class BatchOperator(BaseOperator):
         response = self.hook.client.terminate_job(jobId=self.job_id, reason="Task killed by the user")
         self.log.info("AWS Batch job (%s) terminated: %s", self.job_id, response)
 
-    def submit_job(self, context: 'Context'):
+    def submit_job(self, context: Context):
         """
         Submit an AWS Batch job
 
@@ -187,18 +219,29 @@ class BatchOperator(BaseOperator):
             self.job_definition,
             self.job_queue,
         )
-        self.log.info("AWS Batch job - container overrides: %s", self.overrides)
+
+        if self.container_overrides:
+            self.log.info("AWS Batch job - container overrides: %s", self.container_overrides)
+        if self.array_properties:
+            self.log.info("AWS Batch job - array properties: %s", self.array_properties)
+        if self.node_overrides:
+            self.log.info("AWS Batch job - node properties: %s", self.node_overrides)
+
+        args = {
+            "jobName": self.job_name,
+            "jobQueue": self.job_queue,
+            "jobDefinition": self.job_definition,
+            "arrayProperties": self.array_properties,
+            "parameters": self.parameters,
+            "tags": self.tags,
+            "containerOverrides": self.container_overrides,
+            "nodeOverrides": self.node_overrides,
+            "shareIdentifier": self.share_identifier,
+            "schedulingPriorityOverride": self.scheduling_priority_override,
+        }
 
         try:
-            response = self.hook.client.submit_job(
-                jobName=self.job_name,
-                jobQueue=self.job_queue,
-                jobDefinition=self.job_definition,
-                arrayProperties=self.array_properties,
-                parameters=self.parameters,
-                containerOverrides=self.overrides,
-                tags=self.tags,
-            )
+            response = self.hook.client.submit_job(**trim_none_values(args))
         except Exception as e:
             self.log.error(
                 "AWS Batch job failed submission - job definition: %s - on queue %s",
@@ -217,7 +260,7 @@ class BatchOperator(BaseOperator):
             job_id=self.job_id,
         )
 
-    def monitor_job(self, context: 'Context'):
+    def monitor_job(self, context: Context):
         """
         Monitor an AWS Batch job
         monitor_job can raise an exception or an AirflowTaskTimeout can be raised if execution_timeout
@@ -227,7 +270,7 @@ class BatchOperator(BaseOperator):
         :raises: AirflowException
         """
         if not self.job_id:
-            raise AirflowException('AWS Batch job - job_id was not found')
+            raise AirflowException("AWS Batch job - job_id was not found")
 
         try:
             job_desc = self.hook.get_job_description(self.job_id)
@@ -262,15 +305,24 @@ class BatchOperator(BaseOperator):
         else:
             self.hook.wait_for_job(self.job_id)
 
-        awslogs = self.hook.get_job_awslogs_info(self.job_id)
+        awslogs = self.hook.get_job_all_awslogs_info(self.job_id)
         if awslogs:
-            self.log.info("AWS Batch job (%s) CloudWatch Events details found: %s", self.job_id, awslogs)
+            self.log.info("AWS Batch job (%s) CloudWatch Events details found. Links to logs:", self.job_id)
+            link_builder = CloudWatchEventsLink()
+            for log in awslogs:
+                self.log.info(link_builder.format_link(**log))
+            if len(awslogs) > 1:
+                # there can be several log streams on multi-node jobs
+                self.log.warning(
+                    "out of all those logs, we can only link to one in the UI. " "Using the first one."
+                )
+
             CloudWatchEventsLink.persist(
                 context=context,
                 operator=self,
                 region_name=self.hook.conn_region_name,
                 aws_partition=self.hook.conn_partition,
-                **awslogs,
+                **awslogs[0],
             )
 
         self.hook.check_job_success(self.job_id)
@@ -330,13 +382,13 @@ class BatchCreateComputeEnvironmentOperator(BaseOperator):
         environment_type: str,
         state: str,
         compute_resources: dict,
-        unmanaged_v_cpus: Optional[int] = None,
-        service_role: Optional[str] = None,
-        tags: Optional[dict] = None,
-        max_retries: Optional[int] = None,
-        status_retries: Optional[int] = None,
-        aws_conn_id: Optional[str] = None,
-        region_name: Optional[str] = None,
+        unmanaged_v_cpus: int | None = None,
+        service_role: str | None = None,
+        tags: dict | None = None,
+        max_retries: int | None = None,
+        status_retries: int | None = None,
+        aws_conn_id: str | None = None,
+        region_name: str | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -362,17 +414,17 @@ class BatchCreateComputeEnvironmentOperator(BaseOperator):
             region_name=self.region_name,
         )
 
-    def execute(self, context: 'Context'):
+    def execute(self, context: Context):
         """Create an AWS batch compute environment"""
-        kwargs: Dict[str, Any] = {
-            'computeEnvironmentName': self.compute_environment_name,
-            'type': self.environment_type,
-            'state': self.state,
-            'unmanagedvCpus': self.unmanaged_v_cpus,
-            'computeResources': self.compute_resources,
-            'serviceRole': self.service_role,
-            'tags': self.tags,
+        kwargs: dict[str, Any] = {
+            "computeEnvironmentName": self.compute_environment_name,
+            "type": self.environment_type,
+            "state": self.state,
+            "unmanagedvCpus": self.unmanaged_v_cpus,
+            "computeResources": self.compute_resources,
+            "serviceRole": self.service_role,
+            "tags": self.tags,
         }
         self.hook.client.create_compute_environment(**trim_none_values(kwargs))
 
-        self.log.info('AWS Batch compute environment created successfully')
+        self.log.info("AWS Batch compute environment created successfully")

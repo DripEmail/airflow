@@ -14,7 +14,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
 """Use libyaml for YAML dump/load operations where possible.
 
 If libyaml is available we will use it -- it is significantly faster.
@@ -26,13 +25,15 @@ This module delegates all other properties to the yaml module, so it can be used
 
 And then be used directly in place of the normal python module.
 """
-from typing import TYPE_CHECKING, Any, BinaryIO, TextIO, Union, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, BinaryIO, TextIO, cast
 
 if TYPE_CHECKING:
     from yaml.error import MarkedYAMLError, YAMLError  # noqa
 
 
-def safe_load(stream: Union[bytes, str, BinaryIO, TextIO]) -> Any:
+def safe_load(stream: bytes | str | BinaryIO | TextIO) -> Any:
     """Like yaml.safe_load, but use the C libyaml for speed where we can"""
     # delay import until use.
     from yaml import load as orig
@@ -40,7 +41,7 @@ def safe_load(stream: Union[bytes, str, BinaryIO, TextIO]) -> Any:
     try:
         from yaml import CSafeLoader as SafeLoader
     except ImportError:
-        from yaml import SafeLoader  # type: ignore[no-redef]
+        from yaml import SafeLoader  # type: ignore[assignment, no-redef]
 
     return orig(stream, SafeLoader)
 
@@ -53,7 +54,7 @@ def dump(data: Any, **kwargs) -> str:
     try:
         from yaml import CSafeDumper as SafeDumper
     except ImportError:
-        from yaml import SafeDumper  # type: ignore[no-redef]
+        from yaml import SafeDumper  # type: ignore[assignment, no-redef]
 
     return cast(str, orig(data, Dumper=SafeDumper, **kwargs))
 

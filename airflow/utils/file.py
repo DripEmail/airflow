@@ -15,6 +15,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
+
+import ast
 import io
 import logging
 import os
@@ -22,7 +25,7 @@ import re
 import zipfile
 from collections import OrderedDict
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Generator, List, NamedTuple, Optional, Pattern, Type, Union, overload
+from typing import TYPE_CHECKING, Generator, NamedTuple, Pattern, overload
 
 from pathspec.patterns import GitWildMatchPattern
 from typing_extensions import Protocol
@@ -40,14 +43,14 @@ class _IgnoreRule(Protocol):
     """Interface for ignore rules for structural subtyping"""
 
     @staticmethod
-    def compile(pattern: str, base_dir: Path, definition_file: Path) -> Optional['_IgnoreRule']:
+    def compile(pattern: str, base_dir: Path, definition_file: Path) -> _IgnoreRule | None:
         """
         Build an ignore rule from the supplied pattern where base_dir
         and definition_file should be absolute paths.
         """
 
     @staticmethod
-    def match(path: Path, rules: List['_IgnoreRule']) -> bool:
+    def match(path: Path, rules: list[_IgnoreRule]) -> bool:
         """Match a candidate absolute path against a list of rules"""
 
 
@@ -58,7 +61,7 @@ class _RegexpIgnoreRule(NamedTuple):
     base_dir: Path
 
     @staticmethod
-    def compile(pattern: str, base_dir: Path, definition_file: Path) -> Optional[_IgnoreRule]:
+    def compile(pattern: str, base_dir: Path, definition_file: Path) -> _IgnoreRule | None:
         """Build an ignore rule from the supplied regexp pattern and log a useful warning if it is invalid"""
         try:
             return _RegexpIgnoreRule(re.compile(pattern), base_dir)
@@ -67,7 +70,7 @@ class _RegexpIgnoreRule(NamedTuple):
             return None
 
     @staticmethod
-    def match(path: Path, rules: List[_IgnoreRule]) -> bool:
+    def match(path: Path, rules: list[_IgnoreRule]) -> bool:
         """Match a list of ignore rules against the supplied path"""
         for rule in rules:
             if not isinstance(rule, _RegexpIgnoreRule):
@@ -82,13 +85,13 @@ class _GlobIgnoreRule(NamedTuple):
 
     pattern: Pattern
     raw_pattern: str
-    include: Optional[bool] = None
-    relative_to: Optional[Path] = None
+    include: bool | None = None
+    relative_to: Path | None = None
 
     @staticmethod
-    def compile(pattern: str, _, definition_file: Path) -> Optional[_IgnoreRule]:
+    def compile(pattern: str, _, definition_file: Path) -> _IgnoreRule | None:
         """Build an ignore rule from the supplied glob pattern and log a useful warning if it is invalid"""
-        relative_to: Optional[Path] = None
+        relative_to: Path | None = None
         if pattern.strip() == "/":
             # "/" doesn't match anything in gitignore
             log.warning("Ignoring no-op glob pattern '/' from %s", definition_file)
@@ -103,7 +106,7 @@ class _GlobIgnoreRule(NamedTuple):
         return _GlobIgnoreRule(ignore_pattern.regex, pattern, ignore_pattern.include, relative_to)
 
     @staticmethod
-    def match(path: Path, rules: List[_IgnoreRule]) -> bool:
+    def match(path: Path, rules: list[_IgnoreRule]) -> bool:
         """Match a list of ignore rules against the supplied path"""
         matched = False
         for r in rules:
@@ -151,7 +154,7 @@ def mkdirs(path, mode):
     Path(path).mkdir(mode=mode, parents=True, exist_ok=True)
 
 
-ZIP_REGEX = re.compile(fr'((.*\.zip){re.escape(os.sep)})?(.*)')
+ZIP_REGEX = re.compile(rf"((.*\.zip){re.escape(os.sep)})?(.*)")
 
 
 @overload
@@ -160,11 +163,11 @@ def correct_maybe_zipped(fileloc: None) -> None:
 
 
 @overload
-def correct_maybe_zipped(fileloc: Union[str, Path]) -> Union[str, Path]:
+def correct_maybe_zipped(fileloc: str | Path) -> str | Path:
     ...
 
 
-def correct_maybe_zipped(fileloc: Union[None, str, Path]) -> Union[None, str, Path]:
+def correct_maybe_zipped(fileloc: None | str | Path) -> None | str | Path:
     """
     If the path contains a folder with a .zip suffix, then
     the folder is treated as a zip archive and path to zip is returned.
@@ -181,7 +184,7 @@ def correct_maybe_zipped(fileloc: Union[None, str, Path]) -> Union[None, str, Pa
         return fileloc
 
 
-def open_maybe_zipped(fileloc, mode='r'):
+def open_maybe_zipped(fileloc, mode="r"):
     """
     Opens the given file. If the path contains a folder with a .zip suffix, then
     the folder is treated as a zip archive, opening the file inside the archive.
@@ -199,7 +202,7 @@ def open_maybe_zipped(fileloc, mode='r'):
 def _find_path_from_directory(
     base_dir_path: str,
     ignore_file_name: str,
-    ignore_rule_type: Type[_IgnoreRule],
+    ignore_rule_type: type[_IgnoreRule],
 ) -> Generator[str, None, None]:
     """
     Recursively search the base path and return the list of file paths that should not be ignored by
@@ -211,10 +214,10 @@ def _find_path_from_directory(
     :return: a generator of file paths which should not be ignored.
     """
     # A Dict of patterns, keyed using resolved, absolute paths
-    patterns_by_dir: Dict[Path, List[_IgnoreRule]] = {}
+    patterns_by_dir: dict[Path, list[_IgnoreRule]] = {}
 
     for root, dirs, files in os.walk(base_dir_path, followlinks=True):
-        patterns: List[_IgnoreRule] = patterns_by_dir.get(Path(root).resolve(), [])
+        patterns: list[_IgnoreRule] = patterns_by_dir.get(Path(root).resolve(), [])
 
         ignore_file_path = Path(root) / ignore_file_name
         if ignore_file_path.is_file():
@@ -258,7 +261,7 @@ def _find_path_from_directory(
 def find_path_from_directory(
     base_dir_path: str,
     ignore_file_name: str,
-    ignore_file_syntax: str = conf.get_mandatory_value('core', 'DAG_IGNORE_FILE_SYNTAX', fallback="regexp"),
+    ignore_file_syntax: str = conf.get_mandatory_value("core", "DAG_IGNORE_FILE_SYNTAX", fallback="regexp"),
 ) -> Generator[str, None, None]:
     """
     Recursively search the base path and return the list of file paths that should not be ignored.
@@ -277,10 +280,10 @@ def find_path_from_directory(
 
 
 def list_py_file_paths(
-    directory: Union[str, "pathlib.Path"],
-    safe_mode: bool = conf.getboolean('core', 'DAG_DISCOVERY_SAFE_MODE', fallback=True),
-    include_examples: Optional[bool] = None,
-):
+    directory: str | pathlib.Path,
+    safe_mode: bool = conf.getboolean("core", "DAG_DISCOVERY_SAFE_MODE", fallback=True),
+    include_examples: bool | None = None,
+) -> list[str]:
     """
     Traverse a directory and look for Python files.
 
@@ -291,11 +294,10 @@ def list_py_file_paths(
         to safe.
     :param include_examples: include example DAGs
     :return: a list of paths to Python files in the specified directory
-    :rtype: list[unicode]
     """
     if include_examples is None:
-        include_examples = conf.getboolean('core', 'LOAD_EXAMPLES')
-    file_paths: List[str] = []
+        include_examples = conf.getboolean("core", "LOAD_EXAMPLES")
+    file_paths: list[str] = []
     if directory is None:
         file_paths = []
     elif os.path.isfile(directory):
@@ -310,7 +312,7 @@ def list_py_file_paths(
     return file_paths
 
 
-def find_dag_file_paths(directory: Union[str, "pathlib.Path"], safe_mode: bool) -> List[str]:
+def find_dag_file_paths(directory: str | pathlib.Path, safe_mode: bool) -> list[str]:
     """Finds file paths of all DAG files."""
     file_paths = []
 
@@ -319,7 +321,7 @@ def find_dag_file_paths(directory: Union[str, "pathlib.Path"], safe_mode: bool) 
             if not os.path.isfile(file_path):
                 continue
             _, file_ext = os.path.splitext(os.path.split(file_path)[-1])
-            if file_ext != '.py' and not zipfile.is_zipfile(file_path):
+            if file_ext != ".py" and not zipfile.is_zipfile(file_path):
                 continue
             if not might_contain_dag(file_path, safe_mode):
                 continue
@@ -334,24 +336,59 @@ def find_dag_file_paths(directory: Union[str, "pathlib.Path"], safe_mode: bool) 
 COMMENT_PATTERN = re.compile(r"\s*#.*")
 
 
-def might_contain_dag(file_path: str, safe_mode: bool, zip_file: Optional[zipfile.ZipFile] = None):
+def might_contain_dag(file_path: str, safe_mode: bool, zip_file: zipfile.ZipFile | None = None) -> bool:
+    """
+    Check whether a Python file contains Airflow DAGs.
+    When safe_mode is off (with False value), this function always returns True.
+
+    If might_contain_dag_callable isn't specified, it uses airflow default heuristic
+    """
+    if not safe_mode:
+        return True
+
+    might_contain_dag_callable = conf.getimport(
+        "core",
+        "might_contain_dag_callable",
+        fallback="airflow.utils.file.might_contain_dag_via_default_heuristic",
+    )
+    return might_contain_dag_callable(file_path=file_path, zip_file=zip_file)
+
+
+def might_contain_dag_via_default_heuristic(file_path: str, zip_file: zipfile.ZipFile | None = None) -> bool:
     """
     Heuristic that guesses whether a Python file contains an Airflow DAG definition.
 
     :param file_path: Path to the file to be checked.
-    :param safe_mode: Is safe mode active?. If no, this function always returns True.
     :param zip_file: if passed, checks the archive. Otherwise, check local filesystem.
     :return: True, if file might contain DAGs.
     """
-    if not safe_mode:
-        return True
     if zip_file:
         with zip_file.open(file_path) as current_file:
             content = current_file.read()
     else:
         if zipfile.is_zipfile(file_path):
             return True
-        with open(file_path, 'rb') as dag_file:
+        with open(file_path, "rb") as dag_file:
             content = dag_file.read()
     content = content.lower()
-    return all(s in content for s in (b'dag', b'airflow'))
+    return all(s in content for s in (b"dag", b"airflow"))
+
+
+def _find_imported_modules(module: ast.Module) -> Generator[str, None, None]:
+    for st in module.body:
+        if isinstance(st, ast.Import):
+            for n in st.names:
+                yield n.name
+        elif isinstance(st, ast.ImportFrom) and st.module is not None:
+            yield st.module
+
+
+def iter_airflow_imports(file_path: str) -> Generator[str, None, None]:
+    """Find Airflow modules imported in the given file."""
+    try:
+        parsed = ast.parse(Path(file_path).read_bytes())
+    except (OSError, SyntaxError, UnicodeDecodeError):
+        return
+    for m in _find_imported_modules(parsed):
+        if m.startswith("airflow."):
+            yield m

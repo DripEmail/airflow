@@ -14,8 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 try:
     from rich_click import RichGroup as BreezeGroup
 except ImportError:
-    from click import Group as BreezeGroup  # type: ignore[misc] # noqa
+    from click import Group as BreezeGroup  # type: ignore[assignment] # noqa

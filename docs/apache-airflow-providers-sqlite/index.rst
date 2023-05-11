@@ -45,7 +45,7 @@ Content
     :maxdepth: 1
     :caption: Resources
 
-    Example DAGs <https://github.com/apache/airflow/tree/providers-sqlite/3.0.0/tests/system/providers/sqlite>
+    Example DAGs <https://github.com/apache/airflow/tree/providers-sqlite/|version|/tests/system/providers/sqlite>
     PyPI Repository <https://pypi.org/project/apache-airflow-providers-sqlite/>
     Installing from sources <installing-providers-from-sources>
 
@@ -65,7 +65,7 @@ Package apache-airflow-providers-sqlite
 `SQLite <https://www.sqlite.org/>`__
 
 
-Release: 3.2.0
+Release: 3.3.3
 
 Provider package
 ----------------
@@ -83,10 +83,22 @@ for the minimum Airflow version supported) via
 Requirements
 ------------
 
+The minimum Apache Airflow version supported by this provider package is ``2.4.0``.
+
+This provider package is preinstalled by default when Apache Airflow is installed. You do not need to
+install it separately. You can upgrade and downgrade it independently of Apache Airflow package though.
+
+.. note::
+
+    The minimum Apache Airflow version for this package is 2.4.0 and it will fail
+    import at runtime if the version of Airflow is lower even if there is no requirement specified in
+    the dependencies - this is because the provider is preinstalled and specifying minimum Apache
+    Airflow version would create a dependency cycle, which confuses dependency tools.
+
 =======================================  ==================
 PIP package                              Version required
 =======================================  ==================
-``apache-airflow-providers-common-sql``
+``apache-airflow-providers-common-sql``  ``>=1.3.1``
 =======================================  ==================
 
 Cross provider package dependencies
@@ -114,7 +126,7 @@ Downloading official packages
 You can download officially released packages and verify their checksums and signatures from the
 `Official Apache Download site <https://downloads.apache.org/airflow/providers/>`_
 
-* `The apache-airflow-providers-sqlite 3.2.0 sdist package <https://downloads.apache.org/airflow/providers/apache-airflow-providers-sqlite-3.2.0.tar.gz>`_ (`asc <https://downloads.apache.org/airflow/providers/apache-airflow-providers-sqlite-3.2.0.tar.gz.asc>`__, `sha512 <https://downloads.apache.org/airflow/providers/apache-airflow-providers-sqlite-3.2.0.tar.gz.sha512>`__)
-* `The apache-airflow-providers-sqlite 3.2.0 wheel package <https://downloads.apache.org/airflow/providers/apache_airflow_providers_sqlite-3.2.0-py3-none-any.whl>`_ (`asc <https://downloads.apache.org/airflow/providers/apache_airflow_providers_sqlite-3.2.0-py3-none-any.whl.asc>`__, `sha512 <https://downloads.apache.org/airflow/providers/apache_airflow_providers_sqlite-3.2.0-py3-none-any.whl.sha512>`__)
+* `The apache-airflow-providers-sqlite 3.3.3 sdist package <https://downloads.apache.org/airflow/providers/apache-airflow-providers-sqlite-3.3.3.tar.gz>`_ (`asc <https://downloads.apache.org/airflow/providers/apache-airflow-providers-sqlite-3.3.3.tar.gz.asc>`__, `sha512 <https://downloads.apache.org/airflow/providers/apache-airflow-providers-sqlite-3.3.3.tar.gz.sha512>`__)
+* `The apache-airflow-providers-sqlite 3.3.3 wheel package <https://downloads.apache.org/airflow/providers/apache_airflow_providers_sqlite-3.3.3-py3-none-any.whl>`_ (`asc <https://downloads.apache.org/airflow/providers/apache_airflow_providers_sqlite-3.3.3-py3-none-any.whl.asc>`__, `sha512 <https://downloads.apache.org/airflow/providers/apache_airflow_providers_sqlite-3.3.3-py3-none-any.whl.sha512>`__)
 
 .. include:: ../../airflow/providers/sqlite/CHANGELOG.rst

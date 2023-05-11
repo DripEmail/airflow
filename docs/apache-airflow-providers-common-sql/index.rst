@@ -44,7 +44,7 @@ Content
     :maxdepth: 1
     :caption: Resources
 
-    Example DAGs <https://github.com/apache/airflow/tree/providers-common-sql/1.0.0/tests/system/providers/common/sql>
+    Example DAGs <https://github.com/apache/airflow/tree/providers-common-sql/|version|/tests/system/providers/common/sql>
     PyPI Repository <https://pypi.org/project/apache-airflow-providers-common-sql/>
     Installing from sources <installing-providers-from-sources>
 
@@ -64,7 +64,7 @@ Package apache-airflow-providers-common-sql
 `Common SQL Provider <https://en.wikipedia.org/wiki/SQL>`__
 
 
-Release: 1.1.0
+Release: 1.4.1
 
 Provider package
 ----------------
@@ -81,6 +81,18 @@ for the minimum Airflow version supported) via
 
 Requirements
 ------------
+
+The minimum Apache Airflow version supported by this provider package is ``2.4.0``.
+
+This provider package is preinstalled by default when Apache Airflow is installed. You do not need to
+install it separately. You can upgrade and downgrade it independently of Apache Airflow package though.
+
+.. note::
+
+    The minimum Apache Airflow version for this package is 2.4.0 and it will fail
+    import at runtime if the version of Airflow is lower even if there is no requirement specified in
+    the dependencies - this is because the provider is preinstalled and specifying minimum Apache
+    Airflow version would create a dependency cycle, which confuses dependency tools.
 
 =============  ==================
 PIP package    Version required

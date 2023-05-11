@@ -14,10 +14,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Tuple
+from enum import Enum
 
 from airflow.version import version
 
@@ -41,6 +42,23 @@ def datetime_to_epoch_us(date_time: datetime) -> int:
     return int(date_time.timestamp() * 1_000_000)
 
 
-def get_airflow_version() -> Tuple[int, ...]:
-    val = re.sub(r'(\d+\.\d+\.\d+).*', lambda x: x.group(1), version)
-    return tuple(int(x) for x in val.split('.'))
+def get_airflow_version() -> tuple[int, ...]:
+    val = re.sub(r"(\d+\.\d+\.\d+).*", lambda x: x.group(1), version)
+    return tuple(int(x) for x in val.split("."))
+
+
+class _StringCompareEnum(Enum):
+    """
+    An Enum class which can be compared with regular `str` and subclasses.
+
+    This class avoids multiple inheritance such as AwesomeEnum(str, Enum)
+    which does not work well with templated_fields and Jinja templates.
+    """
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.value == other
+        return super().__eq__(other)
+
+    def __hash__(self):
+        return super().__hash__()  # Need to set because we redefine __eq__

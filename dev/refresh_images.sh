@@ -18,12 +18,12 @@
 
 set -euo pipefail
 rm -rf docker-context-files/*.whl
-rm -rf docker-context-files/*.tgz
+rm -rf docker-context-files/*.tar.gz
 export ANSWER="yes"
 export CI="true"
 export GITHUB_TOKEN=""
 
-breeze setup self-upgrade --force --use-current-airflow-sources
+breeze setup self-upgrade --use-current-airflow-sources
 
 breeze ci-image build \
      --builder airflow_cache \

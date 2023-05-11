@@ -14,8 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+"""Kerberos command."""
+from __future__ import annotations
 
-"""Kerberos command"""
 import daemon
 from daemon.pidfile import TimeoutPIDLockFile
 
@@ -27,14 +28,14 @@ from airflow.utils.cli import setup_locations
 
 @cli_utils.action_cli
 def kerberos(args):
-    """Start a kerberos ticket renewer"""
+    """Start a kerberos ticket renewer."""
     print(settings.HEADER)
 
     if args.daemon:
         pid, stdout, stderr, _ = setup_locations(
             "kerberos", args.pid, args.stdout, args.stderr, args.log_file
         )
-        with open(stdout, 'a') as stdout_handle, open(stderr, 'a') as stderr_handle:
+        with open(stdout, "a") as stdout_handle, open(stderr, "a") as stderr_handle:
             stdout_handle.truncate(0)
             stderr_handle.truncate(0)
 

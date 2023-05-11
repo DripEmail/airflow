@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 from operator import itemgetter
 from unittest.mock import MagicMock
@@ -26,6 +27,7 @@ from airflow.providers.amazon.aws.links.batch import (
     BatchJobQueueLink,
 )
 from airflow.providers.amazon.aws.links.emr import EmrClusterLink
+from airflow.providers.amazon.aws.links.glue import GlueJobRunDetailsLink
 from airflow.providers.amazon.aws.links.logs import CloudWatchEventsLink
 from airflow.serialization.serialized_objects import SerializedDAG
 
@@ -63,8 +65,7 @@ AWS_LINKS = [
     (
         EmrClusterLink,
         {"job_flow_id": "j-TEST-FLOW-ID"},
-        f"https://console.{AWS_DOMAIN}/elasticmapreduce/home?region={REGION_NAME}"
-        f"#cluster-details:j-TEST-FLOW-ID",
+        f"https://console.{AWS_DOMAIN}/emr/home?region={REGION_NAME}#/clusterDetails/j-TEST-FLOW-ID",
     ),
     (
         CloudWatchEventsLink,
@@ -76,6 +77,11 @@ AWS_LINKS = [
         f"https://console.{AWS_DOMAIN}/cloudwatch/home?region=ap-southeast-2"
         f"#logsV2:log-groups/log-group/%2Ftest%2Flogs%2Fgroup"
         f"/log-events/test%2Fstream%2Fd56a66bb98a14c4593defa1548686edf",
+    ),
+    (
+        GlueJobRunDetailsLink,
+        {"job_run_id": "11111", "job_name": "test_job_name"},
+        f"https://console.{AWS_DOMAIN}/gluestudio/home?region={REGION_NAME}#/job/test_job_name/run/11111",
     ),
 ]
 

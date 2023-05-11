@@ -17,41 +17,47 @@
  * under the License.
  */
 
-import * as API from './api-generated';
+import type * as API from "./api-generated";
 
-type RunState = 'success' | 'running' | 'queued' | 'failed';
+type RunState = "success" | "running" | "queued" | "failed";
 
-type TaskState = RunState
-| 'removed'
-| 'scheduled'
-| 'shutdown'
-| 'restarting'
-| 'up_for_retry'
-| 'up_for_reschedule'
-| 'upstream_failed'
-| 'skipped'
-| 'deferred'
-| null;
+type TaskState =
+  | RunState
+  | "removed"
+  | "scheduled"
+  | "shutdown"
+  | "restarting"
+  | "up_for_retry"
+  | "up_for_reschedule"
+  | "upstream_failed"
+  | "skipped"
+  | "deferred"
+  | null;
 
 interface Dag {
-  id: string,
-  rootDagId: string,
-  isPaused: boolean,
-  isSubdag: boolean,
-  owners: Array<string>,
-  description: string,
+  id: string;
+  rootDagId: string;
+  isPaused: boolean;
+  isSubdag: boolean;
+  owners: Array<string>;
+  description: string;
 }
 
 interface DagRun {
   runId: string;
-  runType: 'manual' | 'backfill' | 'scheduled' | 'dataset_triggered';
+  runType: "manual" | "backfill" | "scheduled" | "dataset_triggered";
   state: RunState;
   executionDate: string;
   dataIntervalStart: string;
   dataIntervalEnd: string;
+  queuedAt: string | null;
   startDate: string | null;
   endDate: string | null;
   lastSchedulingDecision: string | null;
+  externalTrigger: boolean;
+  conf: string | null;
+  confIsJson: boolean;
+  note: string | null;
 }
 
 interface TaskInstance {
@@ -62,9 +68,22 @@ interface TaskInstance {
   state: TaskState | null;
   mappedStates?: {
     [key: string]: number;
-  },
+  };
   mapIndex?: number;
   tryNumber?: number;
+  triggererJob?: Job;
+  trigger?: Trigger;
+  note: string | null;
+}
+
+interface Trigger {
+  classpath: string | null;
+  createdDate: string | null;
+}
+
+interface Job {
+  latestHeartbeat: string | null;
+  hostname: string | null;
 }
 
 interface Task {
@@ -77,35 +96,53 @@ interface Task {
   isMapped?: boolean;
   operator?: string;
   hasOutletDatasets?: boolean;
+  triggerRule?: API.TriggerRule;
 }
 
-type RunOrdering = ('dataIntervalStart' | 'executionDate' | 'dataIntervalEnd')[];
+type RunOrdering = (
+  | "dataIntervalStart"
+  | "executionDate"
+  | "dataIntervalEnd"
+)[];
 
 interface DepNode {
   id: string;
   value: {
     id?: string;
-    class: 'dag' | 'dataset' | 'trigger' | 'sensor';
+    class: "dag" | "dataset" | "trigger" | "sensor";
     label: string;
     rx: number;
     ry: number;
-  }
+    isOpen?: boolean;
+    isJoinNode?: boolean;
+    childCount?: number;
+  };
+  children?: DepNode[];
 }
 
 interface DepEdge {
-  u: string;
-  v: string;
+  source: string;
+  target: string;
 }
 
+interface DatasetListItem extends API.Dataset {
+  lastDatasetUpdate: string | null;
+  totalUpdates: number;
+}
+
+type MinimalTaskInstance = Pick<TaskInstance, "taskId" | "mapIndex" | "runId">;
+
 export type {
+  API,
+  MinimalTaskInstance,
   Dag,
   DagRun,
-  RunState,
-  TaskState,
-  TaskInstance,
-  Task,
-  DepNode,
+  DatasetListItem,
   DepEdge,
-  API,
+  DepNode,
   RunOrdering,
+  RunState,
+  Task,
+  TaskInstance,
+  TaskState,
 };

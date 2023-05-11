@@ -14,14 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from typing import List, NamedTuple
+from typing import NamedTuple
 
 from marshmallow import Schema, fields
 
 
 class PluginSchema(Schema):
-    """Plugin schema"""
+    """Plugin schema."""
 
     name = fields.String()
     hooks = fields.List(fields.String())
@@ -36,14 +37,14 @@ class PluginSchema(Schema):
 
 
 class PluginCollection(NamedTuple):
-    """Plugin List"""
+    """Plugin List."""
 
-    plugins: List
+    plugins: list
     total_entries: int
 
 
 class PluginCollectionSchema(Schema):
-    """Plugin Collection List"""
+    """Plugin Collection List."""
 
     plugins = fields.List(fields.Nested(PluginSchema))
     total_entries = fields.Int()

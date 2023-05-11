@@ -16,9 +16,10 @@
 # specific language governing permissions and limitations
 # under the License.
 """Triggering DAG runs APIs."""
+from __future__ import annotations
+
 import json
 from datetime import datetime
-from typing import List, Optional, Union
 
 from airflow.exceptions import DagNotFound, DagRunAlreadyExists
 from airflow.models import DagBag, DagModel, DagRun
@@ -30,11 +31,11 @@ from airflow.utils.types import DagRunType
 def _trigger_dag(
     dag_id: str,
     dag_bag: DagBag,
-    run_id: Optional[str] = None,
-    conf: Optional[Union[dict, str]] = None,
-    execution_date: Optional[datetime] = None,
+    run_id: str | None = None,
+    conf: dict | str | None = None,
+    execution_date: datetime | None = None,
     replace_microseconds: bool = True,
-) -> List[Optional[DagRun]]:
+) -> list[DagRun | None]:
     """Triggers DAG run.
 
     :param dag_id: DAG ID
@@ -58,7 +59,7 @@ def _trigger_dag(
     if replace_microseconds:
         execution_date = execution_date.replace(microsecond=0)
 
-    if dag.default_args and 'start_date' in dag.default_args:
+    if dag.default_args and "start_date" in dag.default_args:
         min_dag_start_date = dag.default_args["start_date"]
         if min_dag_start_date and execution_date < min_dag_start_date:
             raise ValueError(
@@ -74,9 +75,7 @@ def _trigger_dag(
     dag_run = DagRun.find_duplicate(dag_id=dag_id, execution_date=execution_date, run_id=run_id)
 
     if dag_run:
-        raise DagRunAlreadyExists(
-            f"A Dag Run already exists for dag id {dag_id} at {execution_date} with run id {run_id}"
-        )
+        raise DagRunAlreadyExists(dag_run=dag_run, execution_date=execution_date, run_id=run_id)
 
     run_conf = None
     if conf:
@@ -101,12 +100,12 @@ def _trigger_dag(
 
 def trigger_dag(
     dag_id: str,
-    run_id: Optional[str] = None,
-    conf: Optional[Union[dict, str]] = None,
-    execution_date: Optional[datetime] = None,
+    run_id: str | None = None,
+    conf: dict | str | None = None,
+    execution_date: datetime | None = None,
     replace_microseconds: bool = True,
-) -> Optional[DagRun]:
-    """Triggers execution of DAG specified by dag_id
+) -> DagRun | None:
+    """Triggers execution of DAG specified by dag_id.
 
     :param dag_id: DAG ID
     :param run_id: ID of the dag_run

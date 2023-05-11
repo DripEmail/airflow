@@ -15,11 +15,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
 """
 Example Airflow DAG that creates, gets, lists, updates, purges, pauses, resumes
 and deletes Queues in the Google Cloud Tasks service in the Google Cloud.
 """
+from __future__ import annotations
+
 import os
 from datetime import datetime
 
@@ -46,16 +47,16 @@ from airflow.utils.trigger_rule import TriggerRule
 ENV_ID = os.environ.get("SYSTEM_TESTS_ENV_ID")
 DAG_ID = "cloud_tasks_queue"
 
-LOCATION = "europe-central2"
+LOCATION = "europe-west2"
 QUEUE_ID = f"queue-{ENV_ID}-{DAG_ID.replace('_', '-')}"
 
 
 with models.DAG(
     dag_id=DAG_ID,
-    schedule='@once',
+    schedule="@once",
     start_date=datetime(2021, 1, 1),
     catchup=False,
-    tags=['example', "tasks"],
+    tags=["example", "tasks"],
 ) as dag:
 
     @task(task_id="random_string")

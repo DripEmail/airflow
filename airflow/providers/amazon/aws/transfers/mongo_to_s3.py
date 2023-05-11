@@ -15,9 +15,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
+
 import json
-import warnings
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Iterable, Sequence, cast
 
 from bson import json_util
 
@@ -27,11 +28,6 @@ from airflow.providers.mongo.hooks.mongo import MongoHook
 
 if TYPE_CHECKING:
     from airflow.utils.context import Context
-
-
-_DEPRECATION_MSG = (
-    "The s3_conn_id parameter has been deprecated. You should pass instead the aws_conn_id parameter."
-)
 
 
 class MongoToS3Operator(BaseOperator):
@@ -57,32 +53,27 @@ class MongoToS3Operator(BaseOperator):
     :param compression: type of compression to use for output file in S3. Currently only gzip is supported.
     """
 
-    template_fields: Sequence[str] = ('s3_bucket', 's3_key', 'mongo_query', 'mongo_collection')
-    ui_color = '#589636'
+    template_fields: Sequence[str] = ("s3_bucket", "s3_key", "mongo_query", "mongo_collection")
+    ui_color = "#589636"
     template_fields_renderers = {"mongo_query": "json"}
 
     def __init__(
         self,
         *,
-        s3_conn_id: Optional[str] = None,
-        mongo_conn_id: str = 'mongo_default',
-        aws_conn_id: str = 'aws_default',
+        mongo_conn_id: str = "mongo_default",
+        aws_conn_id: str = "aws_default",
         mongo_collection: str,
-        mongo_query: Union[list, dict],
+        mongo_query: list | dict,
         s3_bucket: str,
         s3_key: str,
-        mongo_db: Optional[str] = None,
-        mongo_projection: Optional[Union[list, dict]] = None,
+        mongo_db: str | None = None,
+        mongo_projection: list | dict | None = None,
         replace: bool = False,
         allow_disk_use: bool = False,
-        compression: Optional[str] = None,
+        compression: str | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
-        if s3_conn_id:
-            warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=3)
-            aws_conn_id = s3_conn_id
-
         self.mongo_conn_id = mongo_conn_id
         self.aws_conn_id = aws_conn_id
         self.mongo_db = mongo_db
@@ -99,7 +90,7 @@ class MongoToS3Operator(BaseOperator):
         self.allow_disk_use = allow_disk_use
         self.compression = compression
 
-    def execute(self, context: 'Context'):
+    def execute(self, context: Context):
         """Is written to depend on transform method"""
         s3_conn = S3Hook(self.aws_conn_id)
 
@@ -132,7 +123,7 @@ class MongoToS3Operator(BaseOperator):
         )
 
     @staticmethod
-    def _stringify(iterable: Iterable, joinable: str = '\n') -> str:
+    def _stringify(iterable: Iterable, joinable: str = "\n") -> str:
         """
         Takes an iterable (pymongo Cursor or Array) containing dictionaries and
         returns a stringified version using python join

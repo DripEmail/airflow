@@ -15,9 +15,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
+from __future__ import annotations
+
 import tempfile
-from typing import TYPE_CHECKING, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Sequence
 
 from airflow.models import BaseOperator
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
@@ -44,9 +45,6 @@ class AzureBlobStorageToGCSOperator(BaseOperator):
     :param object_name: The object name to set when uploading the file
     :param filename: The local file path to the file to be uploaded
     :param gzip: Option to compress local file or file data for upload
-    :param delegate_to: The account to impersonate using domain-wide delegation of authority,
-        if any. For this to work, the service account making the request must have
-        domain-wide delegation enabled.
     :param impersonation_chain: Optional service account to impersonate using short-term
         credentials, or chained list of accounts required to get the access_token
         of the last account in the list, which will be impersonated in the request.
@@ -60,7 +58,7 @@ class AzureBlobStorageToGCSOperator(BaseOperator):
     def __init__(
         self,
         *,
-        wasb_conn_id='wasb_default',
+        wasb_conn_id="wasb_default",
         gcp_conn_id: str = "google_cloud_default",
         blob_name: str,
         file_path: str,
@@ -69,8 +67,7 @@ class AzureBlobStorageToGCSOperator(BaseOperator):
         object_name: str,
         filename: str,
         gzip: bool,
-        delegate_to: Optional[str],
-        impersonation_chain: Optional[Union[str, Sequence[str]]] = None,
+        impersonation_chain: str | Sequence[str] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -83,7 +80,6 @@ class AzureBlobStorageToGCSOperator(BaseOperator):
         self.object_name = object_name
         self.filename = filename
         self.gzip = gzip
-        self.delegate_to = delegate_to
         self.impersonation_chain = impersonation_chain
 
     template_fields: Sequence[str] = (
@@ -95,11 +91,10 @@ class AzureBlobStorageToGCSOperator(BaseOperator):
         "filename",
     )
 
-    def execute(self, context: "Context") -> str:
+    def execute(self, context: Context) -> str:
         azure_hook = WasbHook(wasb_conn_id=self.wasb_conn_id)
         gcs_hook = GCSHook(
             gcp_conn_id=self.gcp_conn_id,
-            delegate_to=self.delegate_to,
             impersonation_chain=self.impersonation_chain,
         )
 

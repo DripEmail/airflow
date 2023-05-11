@@ -16,9 +16,11 @@
 # specific language governing permissions and limitations
 # under the License.
 """Hook for Mongo DB"""
+from __future__ import annotations
+
 from ssl import CERT_NONE
 from types import TracebackType
-from typing import List, Optional, Type, Union
+from urllib.parse import quote_plus, urlunsplit
 
 import pymongo
 from pymongo import MongoClient, ReplaceOne
@@ -44,37 +46,31 @@ class MongoHook(BaseHook):
         when connecting to MongoDB.
     """
 
-    conn_name_attr = 'conn_id'
-    default_conn_name = 'mongo_default'
-    conn_type = 'mongo'
-    hook_name = 'MongoDB'
+    conn_name_attr = "conn_id"
+    default_conn_name = "mongo_default"
+    conn_type = "mongo"
+    hook_name = "MongoDB"
 
     def __init__(self, conn_id: str = default_conn_name, *args, **kwargs) -> None:
-
         super().__init__()
         self.mongo_conn_id = conn_id
         self.connection = self.get_connection(conn_id)
         self.extras = self.connection.extra_dejson.copy()
         self.client = None
-
-        srv = self.extras.pop('srv', False)
-        scheme = 'mongodb+srv' if srv else 'mongodb'
-
-        creds = f'{self.connection.login}:{self.connection.password}@' if self.connection.login else ''
-        port = '' if self.connection.port is None else f':{self.connection.port}'
-        self.uri = f'{scheme}://{creds}{self.connection.host}{port}/{self.connection.schema}'
+        self.uri = self._create_uri()
 
     def __enter__(self):
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         if self.client is not None:
-            self.close_conn()
+            self.client.close()
+            self.client = None
 
     def get_conn(self) -> MongoClient:
         """Fetches PyMongo Client"""
@@ -85,35 +81,49 @@ class MongoHook(BaseHook):
         options = self.extras
 
         # If we are using SSL disable requiring certs from specific hostname
-        if options.get('ssl', False):
-            options.update({'ssl_cert_reqs': CERT_NONE})
+        if options.get("ssl", False):
+            if pymongo.__version__ >= "4.0.0":
+                # In pymongo 4.0.0+ `tlsAllowInvalidCertificates=True`
+                # replaces `ssl_cert_reqs=CERT_NONE`
+                options.update({"tlsAllowInvalidCertificates": True})
+            else:
+                options.update({"ssl_cert_reqs": CERT_NONE})
 
         self.client = MongoClient(self.uri, **options)
-
         return self.client
 
-    def close_conn(self) -> None:
-        """Closes connection"""
-        client = self.client
-        if client is not None:
-            client.close()
-            self.client = None
+    def _create_uri(self) -> str:
+        """
+        Create URI string from the given credentials.
+        :return: URI string.
+        """
+        srv = self.extras.pop("srv", False)
+        scheme = "mongodb+srv" if srv else "mongodb"
+        login = self.connection.login
+        password = self.connection.password
+        netloc = self.connection.host
+        if login is not None and password is not None:
+            netloc = f"{quote_plus(login)}:{quote_plus(password)}@{netloc}"
+        if self.connection.port:
+            netloc = f"{netloc}:{self.connection.port}"
+        path = f"/{self.connection.schema}"
+        return urlunsplit((scheme, netloc, path, "", ""))
 
     def get_collection(
-        self, mongo_collection: str, mongo_db: Optional[str] = None
+        self, mongo_collection: str, mongo_db: str | None = None
     ) -> pymongo.collection.Collection:
         """
         Fetches a mongo collection object for querying.
 
         Uses connection schema as DB unless specified.
         """
-        mongo_db = mongo_db if mongo_db is not None else self.connection.schema
+        mongo_db = mongo_db or self.connection.schema
         mongo_conn: MongoClient = self.get_conn()
 
         return mongo_conn.get_database(mongo_db).get_collection(mongo_collection)
 
     def aggregate(
-        self, mongo_collection: str, aggregate_query: list, mongo_db: Optional[str] = None, **kwargs
+        self, mongo_collection: str, aggregate_query: list, mongo_db: str | None = None, **kwargs
     ) -> pymongo.command_cursor.CommandCursor:
         """
         Runs an aggregation pipeline and returns the results
@@ -129,8 +139,8 @@ class MongoHook(BaseHook):
         mongo_collection: str,
         query: dict,
         find_one: bool = False,
-        mongo_db: Optional[str] = None,
-        projection: Optional[Union[list, dict]] = None,
+        mongo_db: str | None = None,
+        projection: list | dict | None = None,
         **kwargs,
     ) -> pymongo.cursor.Cursor:
         """
@@ -145,7 +155,7 @@ class MongoHook(BaseHook):
             return collection.find(query, projection, **kwargs)
 
     def insert_one(
-        self, mongo_collection: str, doc: dict, mongo_db: Optional[str] = None, **kwargs
+        self, mongo_collection: str, doc: dict, mongo_db: str | None = None, **kwargs
     ) -> pymongo.results.InsertOneResult:
         """
         Inserts a single document into a mongo collection
@@ -156,7 +166,7 @@ class MongoHook(BaseHook):
         return collection.insert_one(doc, **kwargs)
 
     def insert_many(
-        self, mongo_collection: str, docs: dict, mongo_db: Optional[str] = None, **kwargs
+        self, mongo_collection: str, docs: dict, mongo_db: str | None = None, **kwargs
     ) -> pymongo.results.InsertManyResult:
         """
         Inserts many docs into a mongo collection.
@@ -171,7 +181,7 @@ class MongoHook(BaseHook):
         mongo_collection: str,
         filter_doc: dict,
         update_doc: dict,
-        mongo_db: Optional[str] = None,
+        mongo_db: str | None = None,
         **kwargs,
     ) -> pymongo.results.UpdateResult:
         """
@@ -194,7 +204,7 @@ class MongoHook(BaseHook):
         mongo_collection: str,
         filter_doc: dict,
         update_doc: dict,
-        mongo_db: Optional[str] = None,
+        mongo_db: str | None = None,
         **kwargs,
     ) -> pymongo.results.UpdateResult:
         """
@@ -206,7 +216,6 @@ class MongoHook(BaseHook):
         :param update_doc: The modifications to apply.
         :param mongo_db: The name of the database to use.
             Can be omitted; then the database from the connection string is used.
-
         """
         collection = self.get_collection(mongo_collection, mongo_db=mongo_db)
 
@@ -216,8 +225,8 @@ class MongoHook(BaseHook):
         self,
         mongo_collection: str,
         doc: dict,
-        filter_doc: Optional[dict] = None,
-        mongo_db: Optional[str] = None,
+        filter_doc: dict | None = None,
+        mongo_db: str | None = None,
         **kwargs,
     ) -> pymongo.results.UpdateResult:
         """
@@ -238,18 +247,18 @@ class MongoHook(BaseHook):
         collection = self.get_collection(mongo_collection, mongo_db=mongo_db)
 
         if not filter_doc:
-            filter_doc = {'_id': doc['_id']}
+            filter_doc = {"_id": doc["_id"]}
 
         return collection.replace_one(filter_doc, doc, **kwargs)
 
     def replace_many(
         self,
         mongo_collection: str,
-        docs: List[dict],
-        filter_docs: Optional[List[dict]] = None,
-        mongo_db: Optional[str] = None,
+        docs: list[dict],
+        filter_docs: list[dict] | None = None,
+        mongo_db: str | None = None,
         upsert: bool = False,
-        collation: Optional[pymongo.collation.Collation] = None,
+        collation: pymongo.collation.Collation | None = None,
         **kwargs,
     ) -> pymongo.results.BulkWriteResult:
         """
@@ -274,12 +283,11 @@ class MongoHook(BaseHook):
         :param collation: An instance of
             :class:`~pymongo.collation.Collation`. This option is only
             supported on MongoDB 3.4 and above.
-
         """
         collection = self.get_collection(mongo_collection, mongo_db=mongo_db)
 
         if not filter_docs:
-            filter_docs = [{'_id': doc['_id']} for doc in docs]
+            filter_docs = [{"_id": doc["_id"]} for doc in docs]
 
         requests = [
             ReplaceOne(filter_docs[i], docs[i], upsert=upsert, collation=collation) for i in range(len(docs))
@@ -288,7 +296,7 @@ class MongoHook(BaseHook):
         return collection.bulk_write(requests, **kwargs)
 
     def delete_one(
-        self, mongo_collection: str, filter_doc: dict, mongo_db: Optional[str] = None, **kwargs
+        self, mongo_collection: str, filter_doc: dict, mongo_db: str | None = None, **kwargs
     ) -> pymongo.results.DeleteResult:
         """
         Deletes a single document in a mongo collection.
@@ -298,14 +306,13 @@ class MongoHook(BaseHook):
         :param filter_doc: A query that matches the document to delete.
         :param mongo_db: The name of the database to use.
             Can be omitted; then the database from the connection string is used.
-
         """
         collection = self.get_collection(mongo_collection, mongo_db=mongo_db)
 
         return collection.delete_one(filter_doc, **kwargs)
 
     def delete_many(
-        self, mongo_collection: str, filter_doc: dict, mongo_db: Optional[str] = None, **kwargs
+        self, mongo_collection: str, filter_doc: dict, mongo_db: str | None = None, **kwargs
     ) -> pymongo.results.DeleteResult:
         """
         Deletes one or more documents in a mongo collection.
@@ -315,7 +322,6 @@ class MongoHook(BaseHook):
         :param filter_doc: A query that matches the documents to delete.
         :param mongo_db: The name of the database to use.
             Can be omitted; then the database from the connection string is used.
-
         """
         collection = self.get_collection(mongo_collection, mongo_db=mongo_db)
 

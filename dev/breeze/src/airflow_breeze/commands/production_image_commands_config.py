@@ -14,9 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from typing import Dict, List, Union
+from __future__ import annotations
 
-PRODUCTION_IMAGE_TOOLS_COMMANDS: Dict[str, Union[str, List[str]]] = {
+PRODUCTION_IMAGE_TOOLS_COMMANDS: dict[str, str | list[str]] = {
     "name": "Production Image tools",
     "commands": [
         "build",
@@ -24,7 +24,7 @@ PRODUCTION_IMAGE_TOOLS_COMMANDS: Dict[str, Union[str, List[str]]] = {
         "verify",
     ],
 }
-PRODUCTION_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]]]]] = {
+PRODUCTION_IMAGE_TOOLS_PARAMETERS: dict[str, list[dict[str, str | list[str]]]] = {
     "breeze prod-image build": [
         {
             "name": "Basic usage",
@@ -32,9 +32,11 @@ PRODUCTION_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]
                 "--python",
                 "--install-airflow-version",
                 "--upgrade-to-newer-dependencies",
+                "--upgrade-on-failure",
                 "--image-tag",
                 "--tag-as-latest",
                 "--docker-cache",
+                "--github-repository",
             ],
         },
         {
@@ -43,6 +45,8 @@ PRODUCTION_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]
                 "--run-in-parallel",
                 "--parallelism",
                 "--python-versions",
+                "--skip-cleanup",
+                "--debug-resources",
                 "--include-success-outputs",
             ],
         },
@@ -52,6 +56,7 @@ PRODUCTION_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]
                 "--builder",
                 "--install-providers-from-sources",
                 "--airflow-extras",
+                "--airflow-constraints-location",
                 "--airflow-constraints-mode",
                 "--airflow-constraints-reference",
                 "--python-image",
@@ -89,7 +94,6 @@ PRODUCTION_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]
                 "--github-token",
                 "--github-username",
                 "--platform",
-                "--login-to-github-registry",
                 "--push",
                 "--empty-image",
                 "--prepare-buildx-cache",
@@ -106,6 +110,7 @@ PRODUCTION_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]
                 "--verify",
                 "--wait-for-image",
                 "--tag-as-latest",
+                "--github-repository",
             ],
         },
         {
@@ -114,6 +119,9 @@ PRODUCTION_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]
                 "--run-in-parallel",
                 "--parallelism",
                 "--python-versions",
+                "--skip-cleanup",
+                "--debug-resources",
+                "--include-success-outputs",
             ],
         },
     ],
@@ -126,6 +134,7 @@ PRODUCTION_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]
                 "--slim-image",
                 "--image-tag",
                 "--pull",
+                "--github-repository",
             ],
         }
     ],

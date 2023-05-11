@@ -14,19 +14,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from typing import Dict, List, Union
+from __future__ import annotations
 
-CI_COMMANDS: Dict[str, Union[str, List[str]]] = {
+CI_COMMANDS: dict[str, str | list[str]] = {
     "name": "CI commands",
     "commands": [
         "fix-ownership",
         "free-space",
         "resource-check",
         "selective-check",
-        "find-newer-dependencies",
+        "get-workflow-info",
     ],
 }
-CI_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]]]]] = {
+CI_PARAMETERS: dict[str, list[dict[str, str | list[str]]]] = {
     "breeze ci fix-ownership": [
         {
             "name": "Fix ownership flags",
@@ -35,6 +35,7 @@ CI_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]]]]] = {
             ],
         }
     ],
+    "breeze ci free-space": [],
     "breeze ci selective-check": [
         {
             "name": "Selective check flags",
@@ -47,16 +48,14 @@ CI_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]]]]] = {
             ],
         }
     ],
-    "breeze ci find-newer-dependencies": [
+    "breeze ci get-workflow-info": [
         {
-            "name": "Find newer dependencies flags",
+            "name": "Get workflow info flags",
             "options": [
-                "--python",
-                "--timezone",
-                "--airflow-constraints-reference",
-                "--updated-on-or-after",
-                "--max-age",
+                "--github-context",
+                "--github-context-input",
             ],
         }
     ],
+    "breeze ci resource-check": [],
 }

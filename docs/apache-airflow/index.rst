@@ -66,18 +66,19 @@ Here you see:
 Airflow evaluates this script and executes the tasks at the set interval and in the defined order. The status
 of the "demo" DAG is visible in the web interface:
 
-.. image:: /img/hello_world_graph_view.png
+.. image:: /img/demo_graph_view.png
   :alt: Demo DAG in the Graph View, showing the status of one DAG run
 
 This example demonstrates a simple Bash and Python script, but these tasks can run any arbitrary code. Think
 of running a Spark job, moving data between two buckets, or sending an email. The same structure can also be
 seen running over time:
 
-.. image:: /img/hello_world_grid_view.png
+.. image:: /img/demo_grid_view.png
   :alt: Demo DAG in the Grid View, showing the status of all DAG runs
 
 Each column represents one DAG run. These are two of the most used views in Airflow, but there are several
 other views which allow you to deep dive into the state of your workflows.
+
 
 Why Airflow?
 =========================================
@@ -107,8 +108,12 @@ The open-source nature of Airflow ensures you work on components developed, test
 blogs posts, articles, conferences, books, and more. You can connect with other peers via several channels
 such as `Slack <https://s.apache.org/airflow-slack>`_ and mailing lists.
 
+Airflow as a Platform is highly customizable. By utilizing :doc:`public-airflow-interface` you can extend
+and customize almost every aspect of Airflow.
+
 Why not Airflow?
-=========================================
+================
+
 Airflow was built for finite batch workflows. While the CLI and REST API do allow triggering workflows,
 Airflow was not built for infinitely-running event-based workflows. Airflow is not a streaming solution.
 However, a streaming system such as Apache Kafka is often seen working together with Apache Airflow. Kafka can
@@ -126,35 +131,23 @@ so coding will always be required.
     :caption: Content
 
     Overview <self>
-    project
-    license
-    start/index
+    start
     installation/index
-    upgrading-from-1-10/index
-    tutorial
-    tutorial_taskflow_api
+    tutorial/index
     howto/index
     ui
-    concepts/index
-    executor/index
-    dag-run
-    plugins
-    security/index
-    logging-monitoring/index
-    timezone
-    Using the CLI <usage-cli>
+    core-concepts/index
+    authoring-and-scheduling/index
+    administration-and-deployment/index
     integration
-    kubernetes
-    lineage
-    listeners
-    dag-serialization
-    modules_management
+    public-airflow-interface
+    best-practices
+    faq
     Release Policies <release-process>
     release_notes
-    best-practices
-    production-deployment
-    faq
     privacy_notice
+    project
+    license
 
 .. toctree::
     :hidden:
@@ -163,9 +156,14 @@ so coding will always be required.
     Operators and hooks <operators-and-hooks-ref>
     CLI <cli-and-env-variables-ref>
     Templates <templates-ref>
-    Python API <python-api-ref>
     Stable REST API <stable-rest-api-ref>
     deprecated-rest-api-ref
     Configurations <configurations-ref>
     Extra packages <extra-packages-ref>
+
+.. toctree::
+    :hidden:
+    :caption: Internal DB details
+
     Database Migrations <migrations-ref>
+    Database ERD Schema <database-erd-ref>

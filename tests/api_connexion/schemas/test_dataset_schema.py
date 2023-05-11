@@ -14,8 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from freezegun import freeze_time
+import time_machine
 
 from airflow.api_connexion.schemas.dataset_schema import (
     DatasetCollection,
@@ -36,7 +37,7 @@ class TestDatasetSchemaBase:
         clear_db_dags()
         clear_db_datasets()
         self.timestamp = "2022-06-10T12:02:44+00:00"
-        self.freezer = freeze_time(self.timestamp)
+        self.freezer = time_machine.travel(self.timestamp, tick=False)
         self.freezer.start()
 
     def teardown_method(self) -> None:
@@ -61,11 +62,11 @@ class TestDatasetSchema(TestDatasetSchemaBase):
         dataset_model = session.query(DatasetModel).filter_by(uri=dataset.uri).one()
 
         serialized_data = dataset_schema.dump(dataset_model)
-        serialized_data['id'] = 1
+        serialized_data["id"] = 1
         assert serialized_data == {
             "id": 1,
             "uri": "s3://bucket/key",
-            "extra": {'foo': 'bar'},
+            "extra": {"foo": "bar"},
             "created_at": self.timestamp,
             "updated_at": self.timestamp,
             "consuming_dags": [
@@ -101,14 +102,14 @@ class TestDatasetCollectionSchema(TestDatasetSchemaBase):
         serialized_data = dataset_collection_schema.dump(
             DatasetCollection(datasets=datasets, total_entries=2)
         )
-        serialized_data['datasets'][0]['id'] = 1
-        serialized_data['datasets'][1]['id'] = 2
+        serialized_data["datasets"][0]["id"] = 1
+        serialized_data["datasets"][1]["id"] = 2
         assert serialized_data == {
             "datasets": [
                 {
                     "id": 1,
                     "uri": "s3://bucket/key/1",
-                    "extra": {'foo': 'bar'},
+                    "extra": {"foo": "bar"},
                     "created_at": self.timestamp,
                     "updated_at": self.timestamp,
                     "consuming_dags": [],
@@ -117,7 +118,7 @@ class TestDatasetCollectionSchema(TestDatasetSchemaBase):
                 {
                     "id": 2,
                     "uri": "s3://bucket/key/2",
-                    "extra": {'foo': 'bar'},
+                    "extra": {"foo": "bar"},
                     "created_at": self.timestamp,
                     "updated_at": self.timestamp,
                     "consuming_dags": [],
@@ -130,7 +131,7 @@ class TestDatasetCollectionSchema(TestDatasetSchemaBase):
 
 class TestDatasetEventSchema(TestDatasetSchemaBase):
     def test_serialize(self, session):
-        d = DatasetModel('s3://abc')
+        d = DatasetModel("s3://abc")
         session.add(d)
         session.commit()
         event = DatasetEvent(
@@ -149,12 +150,13 @@ class TestDatasetEventSchema(TestDatasetSchemaBase):
             "id": 1,
             "dataset_id": d.id,
             "dataset_uri": "s3://abc",
-            "extra": {'foo': 'bar'},
+            "extra": {"foo": "bar"},
             "source_dag_id": "foo",
             "source_task_id": "bar",
             "source_run_id": "custom",
             "source_map_index": -1,
             "timestamp": self.timestamp,
+            "created_dagruns": [],
         }
 
 
@@ -162,11 +164,12 @@ class TestDatasetEventCollectionSchema(TestDatasetSchemaBase):
     def test_serialize(self, session):
         common = {
             "dataset_id": 10,
-            "extra": {'foo': 'bar'},
+            "extra": {"foo": "bar"},
             "source_dag_id": "foo",
             "source_task_id": "bar",
             "source_run_id": "custom",
             "source_map_index": -1,
+            "created_dagruns": [],
         }
 
         events = [DatasetEvent(id=i, **common) for i in [1, 2]]

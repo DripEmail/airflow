@@ -28,14 +28,60 @@ For high-level changelog, see :doc:`package information including changelog <ind
 
 
 
-3.1.0
+3.4.0
 .....
 
-Latest change: 2022-08-07
+Latest change: 2023-03-20
+
+=================================================================================================  ===========  ======================================================================
+Commit                                                                                             Committed    Subject
+=================================================================================================  ===========  ======================================================================
+`c44c7e1b48 <https://github.com/apache/airflow/commit/c44c7e1b481b7c1a0d475265835a23b0f507506c>`_  2023-03-20   ``Add non login-password auth support for SimpleHttpOpeator (#29206)``
+`c3867781e0 <https://github.com/apache/airflow/commit/c3867781e09b7e0e0d19c0991865a2453194d9a8>`_  2023-03-08   ``adding trigger info to provider yaml (#29950)``
+=================================================================================================  ===========  ======================================================================
+
+3.3.0
+.....
+
+Latest change: 2023-03-03
 
 =================================================================================================  ===========  ==================================================================
 Commit                                                                                             Committed    Subject
 =================================================================================================  ===========  ==================================================================
+`fcd3c0149f <https://github.com/apache/airflow/commit/fcd3c0149f17b364dfb94c0523d23e3145976bbe>`_  2023-03-03   ``Prepare docs for 03/2023 wave of Providers (#29878)``
+`47ebe99972 <https://github.com/apache/airflow/commit/47ebe99972b2cc3cc007460e28461b1676c03706>`_  2023-02-22   ``Add Livy Operator with deferrable mode (#29047)``
+`911b708ffd <https://github.com/apache/airflow/commit/911b708ffddd4e7cb6aaeac84048291891eb0f1f>`_  2023-01-14   ``Prepare docs for Jan 2023 mid-month wave of Providers (#28929)``
+`2b92c3c74d <https://github.com/apache/airflow/commit/2b92c3c74d3259ebac714f157c525836f0af50f0>`_  2023-01-05   ``Fix providers documentation formatting (#28754)``
+=================================================================================================  ===========  ==================================================================
+
+3.2.0
+.....
+
+Latest change: 2022-11-15
+
+=================================================================================================  ===========  ====================================================================================
+Commit                                                                                             Committed    Subject
+=================================================================================================  ===========  ====================================================================================
+`12c3c39d1a <https://github.com/apache/airflow/commit/12c3c39d1a816c99c626fe4c650e88cf7b1cc1bc>`_  2022-11-15   ``pRepare docs for November 2022 wave of Providers (#27613)``
+`7dd7400dd4 <https://github.com/apache/airflow/commit/7dd7400dd4588e063078986026e14ea606a55a76>`_  2022-10-31   ``Add template to livy operator documentation (#27404)``
+`f75582a8eb <https://github.com/apache/airflow/commit/f75582a8ebe989b342aa0a29e66a2df6e16d6848>`_  2022-10-31   ``Add Spark's 'appId' to xcom output (#27376)``
+`0c94eff950 <https://github.com/apache/airflow/commit/0c94eff95071c126f97e5f2a438a754ed29549d0>`_  2022-10-31   ``add template field renderer to livy operator (#27321)``
+`9ab1a6a3e7 <https://github.com/apache/airflow/commit/9ab1a6a3e70b32a3cddddf0adede5d2f3f7e29ea>`_  2022-10-27   ``Update old style typing (#26872)``
+`78b8ea2f22 <https://github.com/apache/airflow/commit/78b8ea2f22239db3ef9976301234a66e50b47a94>`_  2022-10-24   ``Move min airflow version to 2.3.0 for all providers (#27196)``
+`2a34dc9e84 <https://github.com/apache/airflow/commit/2a34dc9e8470285b0ed2db71109ef4265e29688b>`_  2022-10-23   ``Enable string normalization in python formatting - providers (#27205)``
+`f8db64c35c <https://github.com/apache/airflow/commit/f8db64c35c8589840591021a48901577cff39c07>`_  2022-09-28   ``Update docs for September Provider's release (#26731)``
+`06acf40a43 <https://github.com/apache/airflow/commit/06acf40a4337759797f666d5bb27a5a393b74fed>`_  2022-09-13   ``Apply PEP-563 (Postponed Evaluation of Annotations) to non-core airflow (#26289)``
+=================================================================================================  ===========  ====================================================================================
+
+3.1.0
+.....
+
+Latest change: 2022-08-10
+
+=================================================================================================  ===========  ==================================================================
+Commit                                                                                             Committed    Subject
+=================================================================================================  ===========  ==================================================================
+`e5ac6c7cfb <https://github.com/apache/airflow/commit/e5ac6c7cfb189c33e3b247f7d5aec59fe5e89a00>`_  2022-08-10   ``Prepare docs for new providers release (August 2022) (#25618)``
 `7d3e799f7e <https://github.com/apache/airflow/commit/7d3e799f7e012d2d5c1fe24ce2bea01e68a5a193>`_  2022-08-07   ``Add auth_type to LivyHook (#25183)``
 `d2459a241b <https://github.com/apache/airflow/commit/d2459a241b54d596ebdb9d81637400279fff4f2d>`_  2022-07-13   ``Add documentation for July 2022 Provider's release (#25030)``
 `0de31bd73a <https://github.com/apache/airflow/commit/0de31bd73a8f41dded2907f0dee59dfa6c1ed7a1>`_  2022-06-29   ``Move provider dependencies to inside provider folders (#24672)``

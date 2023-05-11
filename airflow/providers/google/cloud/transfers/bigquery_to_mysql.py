@@ -16,7 +16,9 @@
 # specific language governing permissions and limitations
 # under the License.
 """This module contains Google BigQuery to MySQL operator."""
-from typing import TYPE_CHECKING, List, Optional, Sequence, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Sequence
 
 from airflow.models import BaseOperator
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
@@ -32,6 +34,9 @@ class BigQueryToMySqlOperator(BaseOperator):
     Fetches the data from a BigQuery table (alternatively fetch data for selected columns)
     and insert that data into a MySQL table.
 
+    .. seealso::
+        For more information on how to use this operator, take a look at the guide:
+        :ref:`howto/operator:BigQueryToMySqlOperator`
 
     .. note::
         If you pass fields to ``selected_fields`` which are in different order than the
@@ -44,20 +49,19 @@ class BigQueryToMySqlOperator(BaseOperator):
 
     **Example**: ::
 
+       # [START howto_operator_bigquery_to_mysql]
        transfer_data = BigQueryToMySqlOperator(
             task_id='task_id',
             dataset_table='origin_bq_table',
             mysql_table='dest_table_name',
             replace=True,
         )
+        # [END howto_operator_bigquery_to_mysql]
 
     :param dataset_table: A dotted ``<dataset>.<table>``: the big query table of origin
     :param selected_fields: List of fields to return (comma-separated). If
         unspecified, all fields are returned.
     :param gcp_conn_id: reference to a specific Google Cloud hook.
-    :param delegate_to: The account to impersonate using domain-wide delegation of authority,
-        if any. For this to work, the service account making the request must have
-        domain-wide delegation enabled.
     :param mysql_conn_id: Reference to :ref:`mysql connection id <howto/connection:mysql>`.
     :param database: name of database which overwrite defined one in connection
     :param replace: Whether to replace instead of insert
@@ -74,10 +78,10 @@ class BigQueryToMySqlOperator(BaseOperator):
     """
 
     template_fields: Sequence[str] = (
-        'dataset_id',
-        'table_id',
-        'mysql_table',
-        'impersonation_chain',
+        "dataset_id",
+        "table_id",
+        "mysql_table",
+        "impersonation_chain",
     )
 
     def __init__(
@@ -85,15 +89,14 @@ class BigQueryToMySqlOperator(BaseOperator):
         *,
         dataset_table: str,
         mysql_table: str,
-        selected_fields: Optional[Union[List[str], str]] = None,
-        gcp_conn_id: str = 'google_cloud_default',
-        mysql_conn_id: str = 'mysql_default',
-        database: Optional[str] = None,
-        delegate_to: Optional[str] = None,
+        selected_fields: list[str] | str | None = None,
+        gcp_conn_id: str = "google_cloud_default",
+        mysql_conn_id: str = "mysql_default",
+        database: str | None = None,
         replace: bool = False,
         batch_size: int = 1000,
-        location: Optional[str] = None,
-        impersonation_chain: Optional[Union[str, Sequence[str]]] = None,
+        location: str | None = None,
+        impersonation_chain: str | Sequence[str] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -103,19 +106,17 @@ class BigQueryToMySqlOperator(BaseOperator):
         self.database = database
         self.mysql_table = mysql_table
         self.replace = replace
-        self.delegate_to = delegate_to
         self.batch_size = batch_size
         self.location = location
         self.impersonation_chain = impersonation_chain
         try:
-            self.dataset_id, self.table_id = dataset_table.split('.')
+            self.dataset_id, self.table_id = dataset_table.split(".")
         except ValueError:
-            raise ValueError(f'Could not parse {dataset_table} as <dataset>.<table>') from None
+            raise ValueError(f"Could not parse {dataset_table} as <dataset>.<table>") from None
 
-    def execute(self, context: 'Context') -> None:
+    def execute(self, context: Context) -> None:
         big_query_hook = BigQueryHook(
             gcp_conn_id=self.gcp_conn_id,
-            delegate_to=self.delegate_to,
             location=self.location,
             impersonation_chain=self.impersonation_chain,
         )

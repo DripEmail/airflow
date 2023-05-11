@@ -14,9 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from typing import Dict, List, Union
+from __future__ import annotations
 
-CI_IMAGE_TOOLS_COMMANDS: Dict[str, Union[str, List[str]]] = {
+CI_IMAGE_TOOLS_COMMANDS: dict[str, str | list[str]] = {
     "name": "CI Image tools",
     "commands": [
         "build",
@@ -24,17 +24,19 @@ CI_IMAGE_TOOLS_COMMANDS: Dict[str, Union[str, List[str]]] = {
         "verify",
     ],
 }
-CI_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]]]]] = {
+CI_IMAGE_TOOLS_PARAMETERS: dict[str, list[dict[str, str | list[str]]]] = {
     "breeze ci-image build": [
         {
             "name": "Basic usage",
             "options": [
                 "--python",
                 "--upgrade-to-newer-dependencies",
+                "--upgrade-on-failure",
                 "--image-tag",
                 "--tag-as-latest",
                 "--docker-cache",
                 "--force-build",
+                "--github-repository",
             ],
         },
         {
@@ -43,6 +45,8 @@ CI_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]]]]] = {
                 "--run-in-parallel",
                 "--parallelism",
                 "--python-versions",
+                "--skip-cleanup",
+                "--debug-resources",
                 "--include-success-outputs",
             ],
         },
@@ -51,6 +55,7 @@ CI_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]]]]] = {
             "options": [
                 "--builder",
                 "--install-providers-from-sources",
+                "--airflow-constraints-location",
                 "--airflow-constraints-mode",
                 "--airflow-constraints-reference",
                 "--python-image",
@@ -70,7 +75,6 @@ CI_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]]]]] = {
                 "--github-token",
                 "--github-username",
                 "--platform",
-                "--login-to-github-registry",
                 "--push",
                 "--empty-image",
                 "--prepare-buildx-cache",
@@ -87,6 +91,7 @@ CI_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]]]]] = {
                 "--verify",
                 "--wait-for-image",
                 "--tag-as-latest",
+                "--github-repository",
             ],
         },
         {
@@ -95,6 +100,8 @@ CI_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]]]]] = {
                 "--run-in-parallel",
                 "--parallelism",
                 "--python-versions",
+                "--skip-cleanup",
+                "--debug-resources",
                 "--include-success-outputs",
             ],
         },
@@ -107,6 +114,7 @@ CI_IMAGE_TOOLS_PARAMETERS: Dict[str, List[Dict[str, Union[str, List[str]]]]] = {
                 "--python",
                 "--image-tag",
                 "--pull",
+                "--github-repository",
             ],
         }
     ],

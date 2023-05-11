@@ -14,24 +14,31 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta
 
+import pytest
+
 from airflow import DAG
 from airflow.models.baseoperator import chain
-from airflow.providers.microsoft.azure.operators.asb import (
-    ASBReceiveSubscriptionMessageOperator,
-    AzureServiceBusCreateQueueOperator,
-    AzureServiceBusDeleteQueueOperator,
-    AzureServiceBusReceiveMessageOperator,
-    AzureServiceBusSendMessageOperator,
-    AzureServiceBusSubscriptionCreateOperator,
-    AzureServiceBusSubscriptionDeleteOperator,
-    AzureServiceBusTopicCreateOperator,
-    AzureServiceBusTopicDeleteOperator,
-    AzureServiceBusUpdateSubscriptionOperator,
-)
+
+try:
+    from airflow.providers.microsoft.azure.operators.asb import (
+        ASBReceiveSubscriptionMessageOperator,
+        AzureServiceBusCreateQueueOperator,
+        AzureServiceBusDeleteQueueOperator,
+        AzureServiceBusReceiveMessageOperator,
+        AzureServiceBusSendMessageOperator,
+        AzureServiceBusSubscriptionCreateOperator,
+        AzureServiceBusSubscriptionDeleteOperator,
+        AzureServiceBusTopicCreateOperator,
+        AzureServiceBusTopicDeleteOperator,
+        AzureServiceBusUpdateSubscriptionOperator,
+    )
+except ImportError:
+    pytest.skip("Azure Service Bus not available", allow_module_level=True)
 
 EXECUTION_TIMEOUT = int(os.getenv("EXECUTION_TIMEOUT", 6))
 

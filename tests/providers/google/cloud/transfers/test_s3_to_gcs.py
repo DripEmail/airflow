@@ -15,24 +15,24 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-import unittest
 from unittest import mock
 
 from airflow.providers.google.cloud.transfers.s3_to_gcs import S3ToGCSOperator
 
-TASK_ID = 'test-s3-gcs-operator'
-S3_BUCKET = 'test-bucket'
-S3_PREFIX = 'TEST'
-S3_DELIMITER = '/'
-GCS_PATH_PREFIX = 'gs://gcs-bucket/data/'
+TASK_ID = "test-s3-gcs-operator"
+S3_BUCKET = "test-bucket"
+S3_PREFIX = "TEST"
+S3_DELIMITER = "/"
+GCS_PATH_PREFIX = "gs://gcs-bucket/data/"
 MOCK_FILES = ["TEST1.csv", "TEST2.csv", "TEST3.csv"]
-AWS_CONN_ID = 'aws_default'
-GCS_CONN_ID = 'google_cloud_default'
+AWS_CONN_ID = "aws_default"
+GCS_CONN_ID = "google_cloud_default"
 IMPERSONATION_CHAIN = ["ACCOUNT_1", "ACCOUNT_2", "ACCOUNT_3"]
 
 
-class TestS3ToGoogleCloudStorageOperator(unittest.TestCase):
+class TestS3ToGoogleCloudStorageOperator:
     def test_init(self):
         """Test S3ToGCSOperator instance is properly initialized."""
 
@@ -54,9 +54,9 @@ class TestS3ToGoogleCloudStorageOperator(unittest.TestCase):
         assert operator.dest_gcs == GCS_PATH_PREFIX
         assert operator.google_impersonation_chain == IMPERSONATION_CHAIN
 
-    @mock.patch('airflow.providers.google.cloud.transfers.s3_to_gcs.S3Hook')
-    @mock.patch('airflow.providers.amazon.aws.operators.s3.S3Hook')
-    @mock.patch('airflow.providers.google.cloud.transfers.s3_to_gcs.GCSHook')
+    @mock.patch("airflow.providers.google.cloud.transfers.s3_to_gcs.S3Hook")
+    @mock.patch("airflow.providers.amazon.aws.operators.s3.S3Hook")
+    @mock.patch("airflow.providers.google.cloud.transfers.s3_to_gcs.GCSHook")
     def test_execute(self, gcs_mock_hook, s3_one_mock_hook, s3_two_mock_hook):
         """Test the execute function when the run is successful."""
 
@@ -76,9 +76,9 @@ class TestS3ToGoogleCloudStorageOperator(unittest.TestCase):
         uploaded_files = operator.execute(None)
         gcs_mock_hook.return_value.upload.assert_has_calls(
             [
-                mock.call('gcs-bucket', 'data/TEST1.csv', mock.ANY, gzip=False),
-                mock.call('gcs-bucket', 'data/TEST3.csv', mock.ANY, gzip=False),
-                mock.call('gcs-bucket', 'data/TEST2.csv', mock.ANY, gzip=False),
+                mock.call("gcs-bucket", "data/TEST1.csv", mock.ANY, gzip=False),
+                mock.call("gcs-bucket", "data/TEST3.csv", mock.ANY, gzip=False),
+                mock.call("gcs-bucket", "data/TEST2.csv", mock.ANY, gzip=False),
             ],
             any_order=True,
         )
@@ -87,16 +87,15 @@ class TestS3ToGoogleCloudStorageOperator(unittest.TestCase):
         s3_two_mock_hook.assert_called_once_with(aws_conn_id=AWS_CONN_ID, verify=None)
         gcs_mock_hook.assert_called_once_with(
             gcp_conn_id=GCS_CONN_ID,
-            delegate_to=None,
             impersonation_chain=IMPERSONATION_CHAIN,
         )
 
         # we expect MOCK_FILES to be uploaded
         assert sorted(MOCK_FILES) == sorted(uploaded_files)
 
-    @mock.patch('airflow.providers.google.cloud.transfers.s3_to_gcs.S3Hook')
-    @mock.patch('airflow.providers.amazon.aws.operators.s3.S3Hook')
-    @mock.patch('airflow.providers.google.cloud.transfers.s3_to_gcs.GCSHook')
+    @mock.patch("airflow.providers.google.cloud.transfers.s3_to_gcs.S3Hook")
+    @mock.patch("airflow.providers.amazon.aws.operators.s3.S3Hook")
+    @mock.patch("airflow.providers.google.cloud.transfers.s3_to_gcs.GCSHook")
     def test_execute_with_gzip(self, gcs_mock_hook, s3_one_mock_hook, s3_two_mock_hook):
         """Test the execute function when the run is successful."""
 
@@ -116,14 +115,13 @@ class TestS3ToGoogleCloudStorageOperator(unittest.TestCase):
         operator.execute(None)
         gcs_mock_hook.assert_called_once_with(
             gcp_conn_id=GCS_CONN_ID,
-            delegate_to=None,
             impersonation_chain=None,
         )
         gcs_mock_hook.return_value.upload.assert_has_calls(
             [
-                mock.call('gcs-bucket', 'data/TEST2.csv', mock.ANY, gzip=True),
-                mock.call('gcs-bucket', 'data/TEST1.csv', mock.ANY, gzip=True),
-                mock.call('gcs-bucket', 'data/TEST3.csv', mock.ANY, gzip=True),
+                mock.call("gcs-bucket", "data/TEST2.csv", mock.ANY, gzip=True),
+                mock.call("gcs-bucket", "data/TEST1.csv", mock.ANY, gzip=True),
+                mock.call("gcs-bucket", "data/TEST3.csv", mock.ANY, gzip=True),
             ],
             any_order=True,
         )

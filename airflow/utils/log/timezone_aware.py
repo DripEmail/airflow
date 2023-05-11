@@ -14,6 +14,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
+
 import logging
 
 import pendulum
@@ -27,9 +29,9 @@ class TimezoneAware(logging.Formatter):
     (e.g. 2022-06-12T13:00:00.123+0000)
     """
 
-    default_time_format = '%Y-%m-%dT%H:%M:%S'
-    default_msec_format = '%s.%03d'
-    default_tz_format = '%z'
+    default_time_format = "%Y-%m-%dT%H:%M:%S"
+    default_msec_format = "%s.%03d"
+    default_tz_format = "%z"
 
     def formatTime(self, record, datefmt=None):
         """

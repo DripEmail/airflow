@@ -15,13 +15,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
+
 import datetime
-from typing import Optional
 
 import dateutil.relativedelta
-import freezegun
 import pendulum
 import pytest
+import time_machine
 
 from airflow.exceptions import AirflowTimetableInvalid
 from airflow.settings import TIMEZONE
@@ -51,9 +52,9 @@ DELTA_FROM_MIDNIGHT = datetime.timedelta(minutes=30, hours=16)
     "last_automated_data_interval",
     [pytest.param(None, id="first-run"), pytest.param(PREV_DATA_INTERVAL, id="subsequent")],
 )
-@freezegun.freeze_time(CURRENT_TIME)
+@time_machine.travel(CURRENT_TIME)
 def test_no_catchup_first_starts_at_current_time(
-    last_automated_data_interval: Optional[DataInterval],
+    last_automated_data_interval: DataInterval | None,
 ) -> None:
     """If ``catchup=False`` and start_date is a day before"""
     next_info = CRON_TIMETABLE.next_dagrun_info(
@@ -72,9 +73,9 @@ def test_no_catchup_first_starts_at_current_time(
     "catchup",
     [pytest.param(True, id="catchup_true"), pytest.param(False, id="catchup_false")],
 )
-@freezegun.freeze_time(CURRENT_TIME)
+@time_machine.travel(CURRENT_TIME)
 def test_new_schedule_interval_next_info_starts_at_new_time(
-    earliest: Optional[pendulum.DateTime],
+    earliest: pendulum.DateTime | None,
     catchup: bool,
 ) -> None:
     """First run after DAG has new schedule interval."""
@@ -99,10 +100,10 @@ def test_new_schedule_interval_next_info_starts_at_new_time(
     "last_automated_data_interval",
     [pytest.param(None, id="first-run"), pytest.param(PREV_DATA_INTERVAL, id="subsequent")],
 )
-@freezegun.freeze_time(CURRENT_TIME)
+@time_machine.travel(CURRENT_TIME)
 def test_no_catchup_next_info_starts_at_current_time(
     timetable: Timetable,
-    last_automated_data_interval: Optional[DataInterval],
+    last_automated_data_interval: DataInterval | None,
 ) -> None:
     """If ``catchup=False``, the next data interval ends at the current time."""
     next_info = timetable.next_dagrun_info(
@@ -182,7 +183,7 @@ def test_validate_failure(timetable: Timetable, error_message: str) -> None:
 
 def test_cron_interval_timezone_from_string():
     timetable = CronDataIntervalTimetable("@hourly", "UTC")
-    assert timetable.serialize()['timezone'] == 'UTC'
+    assert timetable.serialize()["timezone"] == "UTC"
 
 
 @pytest.mark.parametrize(

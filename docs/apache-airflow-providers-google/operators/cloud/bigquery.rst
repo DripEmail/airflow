@@ -1,4 +1,5 @@
  .. Licensed to the Apache Software Foundation (ASF) under one
+ .. Licensed to the Apache Software Foundation (ASF) under one
     or more contributor license agreements.  See the NOTICE file
     distributed with this work for additional information
     regarding copyright ownership.  The ASF licenses this file
@@ -202,20 +203,33 @@ Fetch data from table
 """""""""""""""""""""
 
 To fetch data from a BigQuery table you can use
-:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryGetDataOperator`.
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryGetDataOperator` or
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryGetDataAsyncOperator` .
 Alternatively you can fetch data for selected columns if you pass fields to
 ``selected_fields``.
 
-This operator returns data in a Python list where the number of elements in the
-returned list will be equal to the number of rows fetched. Each element in the
-list will again be a list where elements would represent the column values for
+The result of this operator can be retrieved in two different formats based on the value of the ``as_dict`` parameter:
+``False`` (default) - A Python list of lists, where the number of elements in the nesting list will be equal to the number of rows fetched. Each element in the
+nesting will a nested list where elements would represent the column values for
 that row.
+``True`` - A Python list of dictionaries, where each dictionary represents a row. In each dictionary, the keys are the column names and the values are the corresponding values for those columns.
 
 .. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_queries.py
     :language: python
     :dedent: 8
     :start-after: [START howto_operator_bigquery_get_data]
     :end-before: [END howto_operator_bigquery_get_data]
+
+The below example shows how to use
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryGetDataAsyncOperator`.
+Note that this is a deferrable operator which requires the Triggerer to be running on your Airflow
+deployment.
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_queries_async.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_operator_bigquery_get_data_async]
+    :end-before: [END howto_operator_bigquery_get_data_async]
 
 .. _howto/operator:BigQueryUpsertTableOperator:
 
@@ -294,15 +308,27 @@ Let's say you would like to execute the following query.
     :start-after: [START howto_operator_bigquery_query]
     :end-before: [END howto_operator_bigquery_query]
 
-To execute the SQL query in a specific BigQuery database you can use
-:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryInsertJobOperator` with
-proper query job configuration that can be Jinja templated.
+To execute the SQL query in a specific BigQuery database you can use either
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryInsertJobOperator` or
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryInsertJobAsyncOperator`
+with proper query job configuration that can be Jinja templated.
 
 .. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_queries.py
     :language: python
     :dedent: 8
     :start-after: [START howto_operator_bigquery_insert_job]
     :end-before: [END howto_operator_bigquery_insert_job]
+
+The below example shows how to use
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryInsertJobAsyncOperator`.
+Note that this is a deferrable operator which requires the Triggerer to be running on your Airflow
+deployment.
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_queries_async.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_operator_bigquery_insert_job_async]
+    :end-before: [END howto_operator_bigquery_insert_job_async]
 
 For more information on types of BigQuery job please check
 `documentation <https://cloud.google.com/bigquery/docs/reference/v2/jobs>`__.
@@ -324,6 +350,14 @@ idempotency. If this parameter is not passed then uuid will be used as ``job_id`
 operator will try to submit a new job with this ``job_id```. If there's already a job with such ``job_id``
 then it will reattach to the existing job.
 
+Also for all this action you can use operator in the deferrable mode:
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_queries_async.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_operator_bigquery_insert_job_async]
+    :end-before: [END howto_operator_bigquery_insert_job_async]
+
 Validate data
 ^^^^^^^^^^^^^
 
@@ -332,8 +366,9 @@ Validate data
 Check if query result has data
 """"""""""""""""""""""""""""""
 
-To perform checks against BigQuery you can use
-:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryCheckOperator`.
+To perform checks against BigQuery you can use either
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryCheckOperator` or
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryCheckAsyncOperator`
 
 This operator expects a sql query that will return a single row. Each value on
 that first row is evaluated using python ``bool`` casting. If any of the values
@@ -345,15 +380,24 @@ return ``False`` the check is failed and errors out.
     :start-after: [START howto_operator_bigquery_check]
     :end-before: [END howto_operator_bigquery_check]
 
+Also you can use deferrable mode in this operator
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_queries_async.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_operator_bigquery_check_async]
+    :end-before: [END howto_operator_bigquery_check_async]
+
 .. _howto/operator:BigQueryValueCheckOperator:
 
 Compare query result to pass value
 """"""""""""""""""""""""""""""""""
 
 To perform a simple value check using sql code you can use
-:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryValueCheckOperator`.
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryValueCheckOperator` or
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryValueCheckAsyncOperator`
 
-This operator expects a sql query that will return a single row. Each value on
+These operators expects a sql query that will return a single row. Each value on
 that first row is evaluated against ``pass_value`` which can be either a string
 or numeric value. If numeric, you can also specify ``tolerance``.
 
@@ -363,20 +407,65 @@ or numeric value. If numeric, you can also specify ``tolerance``.
     :start-after: [START howto_operator_bigquery_value_check]
     :end-before: [END howto_operator_bigquery_value_check]
 
+Also you can use deferrable mode in this operator
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_queries_async.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_operator_bigquery_value_check_async]
+    :end-before: [END howto_operator_bigquery_value_check_async]
+
 .. _howto/operator:BigQueryIntervalCheckOperator:
 
 Compare metrics over time
 """""""""""""""""""""""""
 
 To check that the values of metrics given as SQL expressions are within a certain
-tolerance of the ones from ``days_back`` before you can use
-:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryIntervalCheckOperator`.
+tolerance of the ones from ``days_back`` before you can either use
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryIntervalCheckOperator` or
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryIntervalCheckAsyncOperator`
 
 .. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_queries.py
     :language: python
     :dedent: 8
     :start-after: [START howto_operator_bigquery_interval_check]
     :end-before: [END howto_operator_bigquery_interval_check]
+
+Also you can use deferrable mode in this operator
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_queries_async.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_operator_bigquery_interval_check_async]
+    :end-before: [END howto_operator_bigquery_interval_check_async]
+
+.. _howto/operator:BigQueryColumnCheckOperator:
+
+Check columns with predefined tests
+"""""""""""""""""""""""""""""""""""
+
+To check that columns pass user-configurable tests you can use
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryColumnCheckOperator`
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_queries.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_operator_bigquery_column_check]
+    :end-before: [END howto_operator_bigquery_column_check]
+
+.. _howto/operator:BigQueryTableCheckOperator:
+
+Check table level data quality
+""""""""""""""""""""""""""""""
+
+To check that tables pass user-defined tests you can use
+:class:`~airflow.providers.google.cloud.operators.bigquery.BigQueryTableCheckOperator`
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_queries.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_operator_bigquery_table_check]
+    :end-before: [END howto_operator_bigquery_table_check]
 
 Sensors
 ^^^^^^^
@@ -396,6 +485,22 @@ use the ``{{ ds_nodash }}`` macro as the table name suffix.
     :start-after: [START howto_sensor_bigquery_table]
     :end-before: [END howto_sensor_bigquery_table]
 
+Also you can use deferrable mode in this operator if you would like to free up the worker slots while the sensor is running.
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_sensors.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_sensor_bigquery_table_defered]
+    :end-before: [END howto_sensor_bigquery_table_defered]
+
+:class:`~airflow.providers.google.cloud.sensors.bigquery.BigQueryTableExistenceAsyncSensor` is deprecated and will be removed in a future release. Please use :class:`~airflow.providers.google.cloud.sensors.bigquery.BigQueryTableExistenceSensor` and use the deferrable mode in that operator.
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_sensors.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_sensor_async_bigquery_table]
+    :end-before: [END howto_sensor_async_bigquery_table]
+
 Check that a Table Partition exists
 """""""""""""""""""""""""""""""""""
 
@@ -409,6 +514,22 @@ To check that a table exists and has a partition you can use.
     :end-before: [END howto_sensor_bigquery_table_partition]
 
 For DAY partitioned tables, the partition_id parameter is a string on the "%Y%m%d" format
+
+Also you can use deferrable mode in this operator if you would like to free up the worker slots while the sensor is running.
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_sensors.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_sensor_bigquery_table_partition_defered]
+    :end-before: [END howto_sensor_bigquery_table_partition_defered]
+
+:class:`~airflow.providers.google.cloud.sensors.bigquery.BigQueryTableExistencePartitionAsyncSensor` is deprecated and will be removed in a future release. Please use :class:`~airflow.providers.google.cloud.sensors.bigquery.BigQueryTablePartitionExistenceSensor` and use the deferrable mode in that operator.
+
+.. exampleinclude:: /../../tests/system/providers/google/cloud/bigquery/example_bigquery_sensors.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_sensor_bigquery_table_partition_async]
+    :end-before: [END howto_sensor_bigquery_table_partition_async]
 
 Reference
 ^^^^^^^^^

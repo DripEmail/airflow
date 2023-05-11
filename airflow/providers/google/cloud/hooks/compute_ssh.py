@@ -14,10 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
+
 import shlex
 import time
 from io import StringIO
-from typing import Any, Dict, Optional
+from typing import Any
 
 from google.api_core.retry import exponential_sleep_generator
 
@@ -77,37 +79,39 @@ class ComputeEngineSSHHook(SSHHook):
         keys are managed using instance metadata
     :param expire_time: The maximum amount of time in seconds before the private key expires
     :param gcp_conn_id: The connection id to use when fetching connection information
-    :param delegate_to: The account to impersonate, if any.
-        For this to work, the service account making the request must have
-        domain-wide delegation enabled.
     """
 
-    conn_name_attr = 'gcp_conn_id'
-    default_conn_name = 'google_cloud_ssh_default'
-    conn_type = 'gcpssh'
-    hook_name = 'Google Cloud SSH'
+    conn_name_attr = "gcp_conn_id"
+    default_conn_name = "google_cloud_ssh_default"
+    conn_type = "gcpssh"
+    hook_name = "Google Cloud SSH"
 
     @staticmethod
-    def get_ui_field_behaviour() -> Dict[str, Any]:
+    def get_ui_field_behaviour() -> dict[str, Any]:
         return {
-            "hidden_fields": ['host', 'schema', 'login', 'password', 'port', 'extra'],
+            "hidden_fields": ["host", "schema", "login", "password", "port", "extra"],
             "relabeling": {},
         }
 
     def __init__(
         self,
-        gcp_conn_id: str = 'google_cloud_default',
-        instance_name: Optional[str] = None,
-        zone: Optional[str] = None,
-        user: Optional[str] = 'root',
-        project_id: Optional[str] = None,
-        hostname: Optional[str] = None,
+        gcp_conn_id: str = "google_cloud_default",
+        instance_name: str | None = None,
+        zone: str | None = None,
+        user: str | None = "root",
+        project_id: str | None = None,
+        hostname: str | None = None,
         use_internal_ip: bool = False,
         use_iap_tunnel: bool = False,
         use_oslogin: bool = True,
         expire_time: int = 300,
-        delegate_to: Optional[str] = None,
+        **kwargs,
     ) -> None:
+        if kwargs.get("delegate_to") is not None:
+            raise RuntimeError(
+                "The `delegate_to` parameter has been deprecated before and finally removed in this version"
+                " of Google Provider. You MUST convert it to `impersonate_chain`"
+            )
         # Ignore original constructor
         # super().__init__()
         self.instance_name = instance_name
@@ -120,39 +124,38 @@ class ComputeEngineSSHHook(SSHHook):
         self.use_oslogin = use_oslogin
         self.expire_time = expire_time
         self.gcp_conn_id = gcp_conn_id
-        self.delegate_to = delegate_to
-        self._conn: Optional[Any] = None
+        self._conn: Any | None = None
 
     @cached_property
     def _oslogin_hook(self) -> OSLoginHook:
-        return OSLoginHook(gcp_conn_id=self.gcp_conn_id, delegate_to=self.delegate_to)
+        return OSLoginHook(gcp_conn_id=self.gcp_conn_id)
 
     @cached_property
     def _compute_hook(self) -> ComputeEngineHook:
-        return ComputeEngineHook(gcp_conn_id=self.gcp_conn_id, delegate_to=self.delegate_to)
+        return ComputeEngineHook(gcp_conn_id=self.gcp_conn_id)
 
     def _load_connection_config(self):
         def _boolify(value):
             if isinstance(value, bool):
                 return value
             if isinstance(value, str):
-                if value.lower() == 'false':
+                if value.lower() == "false":
                     return False
-                elif value.lower() == 'true':
+                elif value.lower() == "true":
                     return True
             return False
 
         def intify(key, value, default):
             if value is None:
                 return default
-            if isinstance(value, str) and value.strip() == '':
+            if isinstance(value, str) and value.strip() == "":
                 return default
             try:
                 return int(value)
             except ValueError:
                 raise AirflowException(
                     f"The {key} field should be a integer. "
-                    f"Current value: \"{value}\" (type: {type(value)}). "
+                    f'Current value: "{value}" (type: {type(value)}). '
                     f"Please check the connection configuration."
                 )
 
@@ -215,15 +218,15 @@ class ComputeEngineSSHHook(SSHHook):
         proxy_command = None
         if self.use_iap_tunnel:
             proxy_command_args = [
-                'gcloud',
-                'compute',
-                'start-iap-tunnel',
+                "gcloud",
+                "compute",
+                "start-iap-tunnel",
                 str(self.instance_name),
-                '22',
-                '--listen-on-stdin',
-                f'--project={self.project_id}',
-                f'--zone={self.zone}',
-                '--verbosity=warning',
+                "22",
+                "--listen-on-stdin",
+                f"--project={self.project_id}",
+                f"--zone={self.zone}",
+                "--verbosity=warning",
             ]
             proxy_command = " ".join(shlex.quote(arg) for arg in proxy_command_args)
 
@@ -255,7 +258,7 @@ class ComputeEngineSSHHook(SSHHook):
                     raise
             self.log.info("Failed to connect. Waiting %ds to retry", time_to_wait)
             time.sleep(time_to_wait)
-        raise AirflowException("Caa not connect to instance")
+        raise AirflowException("Can not connect to instance")
 
     def _authorize_compute_engine_instance_metadata(self, pubkey):
         self.log.info("Appending SSH public key to instance metadata")
@@ -264,16 +267,16 @@ class ComputeEngineSSHHook(SSHHook):
         )
 
         keys = self.user + ":" + pubkey + "\n"
-        metadata = instance_info['metadata']
+        metadata = instance_info["metadata"]
         items = metadata.get("items", [])
         for item in items:
             if item.get("key") == "ssh-keys":
                 keys += item["value"]
-                item['value'] = keys
+                item["value"] = keys
                 break
         else:
-            new_dict = dict(key='ssh-keys', value=keys)
-            metadata['items'] = [new_dict]
+            new_dict = dict(key="ssh-keys", value=keys)
+            metadata["items"] = [new_dict]
 
         self._compute_hook.set_instance_metadata(
             zone=self.zone, resource_id=self.instance_name, metadata=metadata, project_id=self.project_id

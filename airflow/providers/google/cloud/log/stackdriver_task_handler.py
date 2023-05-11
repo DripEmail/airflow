@@ -15,8 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 """Handler that integrates with Stackdriver"""
+from __future__ import annotations
+
 import logging
-from typing import Collection, Dict, List, Optional, Tuple, Type, Union
+from contextvars import ContextVar
+from typing import Collection
 from urllib.parse import urlencode
 
 from google.auth.credentials import Credentials
@@ -30,6 +33,13 @@ from airflow.compat.functools import cached_property
 from airflow.models import TaskInstance
 from airflow.providers.google.cloud.utils.credentials_provider import get_credentials_and_project_id
 from airflow.providers.google.common.consts import CLIENT_INFO
+
+try:
+    # todo: remove this conditional import when min airflow version >= 2.6
+    ctx_indiv_trigger: ContextVar | None
+    from airflow.utils.log.trigger_handler import ctx_indiv_trigger
+except ImportError:
+    ctx_indiv_trigger = None
 
 DEFAULT_LOGGER_NAME = "airflow"
 _GLOBAL_RESOURCE = Resource(type="global", labels={})
@@ -74,29 +84,34 @@ class StackdriverTaskHandler(logging.Handler):
     LABEL_EXECUTION_DATE = "execution_date"
     LABEL_TRY_NUMBER = "try_number"
     LOG_VIEWER_BASE_URL = "https://console.cloud.google.com/logs/viewer"
-    LOG_NAME = 'Google Stackdriver'
+    LOG_NAME = "Google Stackdriver"
+
+    trigger_supported = True
+    trigger_should_queue = False
+    trigger_should_wrap = False
+    trigger_send_end_marker = False
 
     def __init__(
         self,
-        gcp_key_path: Optional[str] = None,
-        scopes: Optional[Collection[str]] = _DEFAULT_SCOPESS,
+        gcp_key_path: str | None = None,
+        scopes: Collection[str] | None = _DEFAULT_SCOPESS,
         name: str = DEFAULT_LOGGER_NAME,
-        transport: Type[Transport] = BackgroundThreadTransport,
+        transport: type[Transport] = BackgroundThreadTransport,
         resource: Resource = _GLOBAL_RESOURCE,
-        labels: Optional[Dict[str, str]] = None,
+        labels: dict[str, str] | None = None,
     ):
         super().__init__()
-        self.gcp_key_path: Optional[str] = gcp_key_path
-        self.scopes: Optional[Collection[str]] = scopes
+        self.gcp_key_path: str | None = gcp_key_path
+        self.scopes: Collection[str] | None = scopes
         self.name: str = name
-        self.transport_type: Type[Transport] = transport
+        self.transport_type: type[Transport] = transport
         self.resource: Resource = resource
-        self.labels: Optional[Dict[str, str]] = labels
-        self.task_instance_labels: Optional[Dict[str, str]] = {}
-        self.task_instance_hostname = 'default-hostname'
+        self.labels: dict[str, str] | None = labels
+        self.task_instance_labels: dict[str, str] | None = {}
+        self.task_instance_hostname = "default-hostname"
 
     @cached_property
-    def _credentials_and_project(self) -> Tuple[Credentials, str]:
+    def _credentials_and_project(self) -> tuple[Credentials, str]:
         credentials, project = get_credentials_and_project_id(
             key_path=self.gcp_key_path, scopes=self.scopes, disable_logging=True
         )
@@ -130,23 +145,36 @@ class StackdriverTaskHandler(logging.Handler):
         # arguments are a requirement for any class that derives from Transport class, hence ignore:
         return self.transport_type(self._client, self.name)  # type: ignore[call-arg]
 
+    def _get_labels(self, task_instance=None):
+        """When"""
+        if task_instance:
+            ti_labels = self._task_instance_to_labels(task_instance)
+        else:
+            ti_labels = self.task_instance_labels
+        labels: dict[str, str] | None
+        if self.labels and ti_labels:
+            labels = {}
+            labels.update(self.labels)
+            labels.update(ti_labels)
+        elif self.labels:
+            labels = self.labels
+        elif ti_labels:
+            labels = ti_labels
+        else:
+            labels = None
+        return labels or {}
+
     def emit(self, record: logging.LogRecord) -> None:
         """Actually log the specified logging record.
 
         :param record: The record to be logged.
         """
         message = self.format(record)
-        labels: Optional[Dict[str, str]]
-        if self.labels and self.task_instance_labels:
-            labels = {}
-            labels.update(self.labels)
-            labels.update(self.task_instance_labels)
-        elif self.labels:
-            labels = self.labels
-        elif self.task_instance_labels:
-            labels = self.task_instance_labels
-        else:
-            labels = None
+        ti = None
+        # todo: remove ctx_indiv_trigger is not None check when min airflow version >= 2.6
+        if ctx_indiv_trigger is not None and getattr(record, ctx_indiv_trigger.name, None):
+            ti = getattr(record, "task_instance", None)  # trigger context
+        labels = self._get_labels(ti)
         self._transport.send(record, message, resource=self.resource, labels=labels)
 
     def set_context(self, task_instance: TaskInstance) -> None:
@@ -159,8 +187,8 @@ class StackdriverTaskHandler(logging.Handler):
         self.task_instance_hostname = task_instance.hostname
 
     def read(
-        self, task_instance: TaskInstance, try_number: Optional[int] = None, metadata: Optional[Dict] = None
-    ) -> Tuple[List[Tuple[Tuple[str, str]]], List[Dict[str, Union[str, bool]]]]:
+        self, task_instance: TaskInstance, try_number: int | None = None, metadata: dict | None = None
+    ) -> tuple[list[tuple[tuple[str, str]]], list[dict[str, str | bool]]]:
         """
         Read logs of given task instance from Stackdriver logging.
 
@@ -171,7 +199,6 @@ class StackdriverTaskHandler(logging.Handler):
         :return: a tuple of (
             list of (one element tuple with two element tuple - hostname and logs)
             and list of metadata)
-        :rtype: Tuple[List[Tuple[Tuple[str, str]]], List[Dict[str, str]]]
         """
         if try_number is not None and try_number < 1:
             logs = f"Error fetching the logs. Try number {try_number} is invalid."
@@ -189,18 +216,18 @@ class StackdriverTaskHandler(logging.Handler):
 
         log_filter = self._prepare_log_filter(ti_labels)
         next_page_token = metadata.get("next_page_token", None)
-        all_pages = 'download_logs' in metadata and metadata['download_logs']
+        all_pages = "download_logs" in metadata and metadata["download_logs"]
 
         messages, end_of_log, next_page_token = self._read_logs(log_filter, next_page_token, all_pages)
 
-        new_metadata: Dict[str, Union[str, bool]] = {"end_of_log": end_of_log}
+        new_metadata: dict[str, str | bool] = {"end_of_log": end_of_log}
 
         if next_page_token:
-            new_metadata['next_page_token'] = next_page_token
+            new_metadata["next_page_token"] = next_page_token
 
         return [((self.task_instance_hostname, messages),)], [new_metadata]
 
-    def _prepare_log_filter(self, ti_labels: Dict[str, str]) -> str:
+    def _prepare_log_filter(self, ti_labels: dict[str, str]) -> str:
         """
         Prepares the filter that chooses which log entries to fetch.
 
@@ -221,20 +248,20 @@ class StackdriverTaskHandler(logging.Handler):
 
         _, project = self._credentials_and_project
         log_filters = [
-            f'resource.type={escale_label_value(self.resource.type)}',
+            f"resource.type={escale_label_value(self.resource.type)}",
             f'logName="projects/{project}/logs/{self.name}"',
         ]
 
         for key, value in self.resource.labels.items():
-            log_filters.append(f'resource.labels.{escape_label_key(key)}={escale_label_value(value)}')
+            log_filters.append(f"resource.labels.{escape_label_key(key)}={escale_label_value(value)}")
 
         for key, value in ti_labels.items():
-            log_filters.append(f'labels.{escape_label_key(key)}={escale_label_value(value)}')
+            log_filters.append(f"labels.{escape_label_key(key)}={escale_label_value(value)}")
         return "\n".join(log_filters)
 
     def _read_logs(
-        self, log_filter: str, next_page_token: Optional[str], all_pages: bool
-    ) -> Tuple[str, bool, Optional[str]]:
+        self, log_filter: str, next_page_token: str | None, all_pages: bool
+    ) -> tuple[str, bool, str | None]:
         """
         Sends requests to the Stackdriver service and downloads logs.
 
@@ -247,7 +274,6 @@ class StackdriverTaskHandler(logging.Handler):
             * string with logs
             * Boolean value describing whether there are more logs,
             * token of the next page
-        :rtype: Tuple[str, bool, str]
         """
         messages = []
         new_messages, next_page_token = self._read_single_logs_page(
@@ -270,7 +296,7 @@ class StackdriverTaskHandler(logging.Handler):
             end_of_log = not bool(next_page_token)
         return "\n".join(messages), end_of_log, next_page_token
 
-    def _read_single_logs_page(self, log_filter: str, page_token: Optional[str] = None) -> Tuple[str, str]:
+    def _read_single_logs_page(self, log_filter: str, page_token: str | None = None) -> tuple[str, str]:
         """
         Sends requests to the Stackdriver service and downloads single pages with logs.
 
@@ -278,26 +304,27 @@ class StackdriverTaskHandler(logging.Handler):
         :param page_token: The token of the page to be downloaded. If None is passed, the first page will be
             downloaded.
         :return: Downloaded logs and next page token
-        :rtype: Tuple[str, str]
         """
         _, project = self._credentials_and_project
         request = ListLogEntriesRequest(
-            resource_names=[f'projects/{project}'],
+            resource_names=[f"projects/{project}"],
             filter=log_filter,
             page_token=page_token,
-            order_by='timestamp asc',
+            order_by="timestamp asc",
             page_size=1000,
         )
         response = self._logging_service_client.list_log_entries(request=request)
         page: ListLogEntriesResponse = next(response.pages)
         messages = []
         for entry in page.entries:
-            if "message" in entry.json_payload:
+            if "message" in (entry.json_payload or {}):
                 messages.append(entry.json_payload["message"])
+            elif entry.text_payload:
+                messages.append(entry.text_payload)
         return "\n".join(messages), page.next_page_token
 
     @classmethod
-    def _task_instance_to_labels(cls, ti: TaskInstance) -> Dict[str, str]:
+    def _task_instance_to_labels(cls, ti: TaskInstance) -> dict[str, str]:
         return {
             cls.LABEL_TASK_ID: ti.task_id,
             cls.LABEL_DAG_ID: ti.dag_id,
@@ -326,7 +353,6 @@ class StackdriverTaskHandler(logging.Handler):
         :param task_instance: task instance object
         :param try_number: task instance try_number to read logs from.
         :return: URL to the external log collection service
-        :rtype: str
         """
         _, project_id = self._credentials_and_project
 
@@ -336,10 +362,10 @@ class StackdriverTaskHandler(logging.Handler):
         log_filter = self._prepare_log_filter(ti_labels)
 
         url_query_string = {
-            'project': project_id,
-            'interval': 'NO_LIMIT',
-            'resource': self._resource_path,
-            'advancedFilter': log_filter,
+            "project": project_id,
+            "interval": "NO_LIMIT",
+            "resource": self._resource_path,
+            "advancedFilter": log_filter,
         }
 
         url = f"{self.LOG_VIEWER_BASE_URL}?{urlencode(url_query_string)}"

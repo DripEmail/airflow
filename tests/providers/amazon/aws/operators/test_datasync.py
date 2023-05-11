@@ -14,7 +14,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-import unittest
+from __future__ import annotations
+
 from unittest import mock
 
 import boto3
@@ -67,13 +68,9 @@ MOCK_DATA = {
 
 @mock_datasync
 @mock.patch.object(DataSyncHook, "get_conn")
-class DataSyncTestCaseBase(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.datasync = None
-
+class DataSyncTestCaseBase:
     # Runs once for each test
-    def setUp(self):
+    def setup_method(self, method):
         args = {
             "owner": "airflow",
             "start_date": DEFAULT_DATE,
@@ -86,6 +83,7 @@ class DataSyncTestCaseBase(unittest.TestCase):
         )
 
         self.client = boto3.client("datasync", region_name="us-east-1")
+        self.datasync = None
 
         self.source_location_arn = self.client.create_location_smb(
             **MOCK_DATA["create_source_location_kwargs"]
@@ -98,7 +96,7 @@ class DataSyncTestCaseBase(unittest.TestCase):
             DestinationLocationArn=self.destination_location_arn,
         )["TaskArn"]
 
-    def tearDown(self):
+    def teardown_method(self, method):
         # Delete all tasks:
         tasks = self.client.list_tasks()
         for task in tasks["Tasks"]:
@@ -275,7 +273,7 @@ class TestDataSyncOperatorCreate(DataSyncTestCaseBase):
         # Create duplicate source location to choose from
         self.client.create_location_smb(**MOCK_DATA["create_source_location_kwargs"])
 
-        self.set_up_operator(task_id='datasync_task1')
+        self.set_up_operator(task_id="datasync_task1")
         with pytest.raises(AirflowException):
             self.datasync.execute(None)
 
@@ -284,7 +282,7 @@ class TestDataSyncOperatorCreate(DataSyncTestCaseBase):
         for task in tasks["Tasks"]:
             self.client.delete_task(TaskArn=task["TaskArn"])
 
-        self.set_up_operator(task_id='datasync_task2', allow_random_location_choice=True)
+        self.set_up_operator(task_id="datasync_task2", allow_random_location_choice=True)
         self.datasync.execute(None)
         # ### Check mocks:
         mock_get_conn.assert_called()
@@ -453,7 +451,7 @@ class TestDataSyncOperatorGetTasks(DataSyncTestCaseBase):
         mock_get_conn.return_value = self.client
         # ### Begin tests:
 
-        self.set_up_operator(task_id='datasync_task1')
+        self.set_up_operator(task_id="datasync_task1")
 
         self.client.create_task(
             SourceLocationArn=self.source_location_arn,
@@ -476,7 +474,7 @@ class TestDataSyncOperatorGetTasks(DataSyncTestCaseBase):
         locations = self.client.list_locations()
         assert len(locations["Locations"]) == 2
 
-        self.set_up_operator(task_id='datasync_task2', task_arn=self.task_arn, allow_random_task_choice=True)
+        self.set_up_operator(task_id="datasync_task2", task_arn=self.task_arn, allow_random_task_choice=True)
         self.datasync.execute(None)
         # ### Check mocks:
         mock_get_conn.assert_called()
@@ -517,10 +515,6 @@ class TestDataSyncOperatorGetTasks(DataSyncTestCaseBase):
 @mock_datasync
 @mock.patch.object(DataSyncHook, "get_conn")
 class TestDataSyncOperatorUpdate(DataSyncTestCaseBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.datasync = None
-
     def set_up_operator(
         self, task_id="test_datasync_update_task_operator", task_arn="self", update_task_kwargs="default"
     ):

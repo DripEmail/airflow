@@ -24,6 +24,76 @@
 Changelog
 ---------
 
+4.2.4
+.....
+
+Bug Fixes
+~~~~~~~~~
+
+* ``Fix SFTPSensor when using newer_than and there are multiple matched files (#29794)``
+
+4.2.3
+.....
+
+Bug Fixes
+~~~~~~~~~
+
+* ``Fix sftp sensor with pattern (#29467)``
+
+4.2.2
+.....
+
+Bug Fixes
+~~~~~~~~~
+
+* ``Fix SFTP operator's template fields processing (#29068)``
+* ``FTP operator has logic in __init__ (#29073)``
+
+4.2.1
+.....
+
+Misc
+~~~~
+
+* ``Update codespell and fix typos (#28568)``
+* ``[misc] Get rid of 'pass' statement in conditions (#27775)``
+
+.. Below changes are excluded from the changelog. Move them to
+   appropriate section above if needed. Do not delete the lines(!):
+
+4.2.0
+.....
+
+This release of provider is only available for Airflow 2.3+ as explained in the
+`Apache Airflow providers support policy <https://github.com/apache/airflow/blob/main/README.md#support-for-providers>`_.
+
+Misc
+~~~~
+
+* ``Move min airflow version to 2.3.0 for all providers (#27196)``
+
+Bug Fixes
+~~~~~~~~~
+
+* ``SFTP Provider: Fix default folder permissions  (#26593)``
+
+.. Below changes are excluded from the changelog. Move them to
+   appropriate section above if needed. Do not delete the lines(!):
+   * ``Update old style typing (#26872)``
+   * ``Enable string normalization in python formatting - providers (#27205)``
+
+4.1.0
+.....
+
+Features
+~~~~~~~~
+
+* ``SFTPOperator - add support for list of file paths (#26666)``
+
+.. Below changes are excluded from the changelog. Move them to
+   appropriate section above if needed. Do not delete the lines(!):
+   * ``Apply PEP-563 (Postponed Evaluation of Annotations) to non-core airflow (#26289)``
+
 4.0.0
 .....
 

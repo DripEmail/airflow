@@ -17,22 +17,22 @@
  * under the License.
  */
 
-import axios, { AxiosResponse } from 'axios';
-import { useQuery } from 'react-query';
+import axios, { AxiosResponse } from "axios";
+import { useQuery } from "react-query";
 
-import { getMetaValue } from 'src/utils';
-import type { API } from 'src/types';
+import { getMetaValue } from "src/utils";
+import type { API } from "src/types";
 
 interface Props {
-  datasetUri: string;
+  uri: string;
 }
 
-export default function useDataset({ datasetUri }: Props) {
-  return useQuery(
-    ['dataset', datasetUri],
-    () => {
-      const datasetUrl = `${getMetaValue('datasets_api') || '/api/v1/datasets'}/${encodeURIComponent(datasetUri)}`;
-      return axios.get<AxiosResponse, API.Dataset>(datasetUrl);
-    },
-  );
+export default function useDataset({ uri }: Props) {
+  return useQuery(["dataset", uri], () => {
+    const datasetUrl = getMetaValue("dataset_api").replace(
+      "__URI__",
+      encodeURIComponent(uri)
+    );
+    return axios.get<AxiosResponse, API.Dataset>(datasetUrl);
+  });
 }

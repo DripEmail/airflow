@@ -14,8 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-from typing import Optional
+from __future__ import annotations
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, subqueryload
@@ -39,7 +38,7 @@ from airflow.utils.session import NEW_SESSION, provide_session
 @security.requires_access([(permissions.ACTION_CAN_READ, permissions.RESOURCE_DATASET)])
 @provide_session
 def get_dataset(uri: str, session: Session = NEW_SESSION) -> APIResponse:
-    """Get a Dataset"""
+    """Get a Dataset."""
     dataset = (
         session.query(DatasetModel)
         .filter(DatasetModel.uri == uri)
@@ -55,18 +54,18 @@ def get_dataset(uri: str, session: Session = NEW_SESSION) -> APIResponse:
 
 
 @security.requires_access([(permissions.ACTION_CAN_READ, permissions.RESOURCE_DATASET)])
-@format_parameters({'limit': check_limit})
+@format_parameters({"limit": check_limit})
 @provide_session
 def get_datasets(
     *,
     limit: int,
     offset: int = 0,
-    uri_pattern: Optional[str] = None,
+    uri_pattern: str | None = None,
     order_by: str = "id",
     session: Session = NEW_SESSION,
 ) -> APIResponse:
-    """Get datasets"""
-    allowed_attrs = ['id', 'uri', 'created_at', 'updated_at']
+    """Get datasets."""
+    allowed_attrs = ["id", "uri", "created_at", "updated_at"]
 
     total_entries = session.query(func.count(DatasetModel.id)).scalar()
     query = session.query(DatasetModel)
@@ -84,21 +83,21 @@ def get_datasets(
 
 @security.requires_access([(permissions.ACTION_CAN_READ, permissions.RESOURCE_DATASET)])
 @provide_session
-@format_parameters({'limit': check_limit})
+@format_parameters({"limit": check_limit})
 def get_dataset_events(
     *,
     limit: int,
     offset: int = 0,
     order_by: str = "timestamp",
-    dataset_id: Optional[int] = None,
-    source_dag_id: Optional[str] = None,
-    source_task_id: Optional[str] = None,
-    source_run_id: Optional[str] = None,
-    source_map_index: Optional[int] = None,
+    dataset_id: int | None = None,
+    source_dag_id: str | None = None,
+    source_task_id: str | None = None,
+    source_run_id: str | None = None,
+    source_map_index: int | None = None,
     session: Session = NEW_SESSION,
 ) -> APIResponse:
-    """Get dataset events"""
-    allowed_attrs = ['source_dag_id', 'source_task_id', 'source_run_id', 'source_map_index', 'timestamp']
+    """Get dataset events."""
+    allowed_attrs = ["source_dag_id", "source_task_id", "source_run_id", "source_map_index", "timestamp"]
 
     query = session.query(DatasetEvent)
 
@@ -112,6 +111,8 @@ def get_dataset_events(
         query = query.filter(DatasetEvent.source_run_id == source_run_id)
     if source_map_index:
         query = query.filter(DatasetEvent.source_map_index == source_map_index)
+
+    query = query.options(subqueryload(DatasetEvent.created_dagruns))
 
     total_entries = query.count()
     query = apply_sorting(query, order_by, {}, allowed_attrs)

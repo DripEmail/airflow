@@ -18,6 +18,7 @@
 """
 Example Airflow DAG for Google Cloud Storage sensors.
 """
+from __future__ import annotations
 
 import os
 from datetime import datetime
@@ -28,6 +29,7 @@ from airflow.models.baseoperator import chain
 from airflow.operators.bash import BashOperator
 from airflow.providers.google.cloud.operators.gcs import GCSCreateBucketOperator, GCSDeleteBucketOperator
 from airflow.providers.google.cloud.sensors.gcs import (
+    GCSObjectExistenceAsyncSensor,
     GCSObjectExistenceSensor,
     GCSObjectsWithPrefixExistenceSensor,
     GCSObjectUpdateSensor,
@@ -46,9 +48,29 @@ FILE_NAME = "example_upload.txt"
 UPLOAD_FILE_PATH = str(Path(__file__).parent / "resources" / FILE_NAME)
 
 
+def workaround_in_debug_executor(cls):
+    """
+    DebugExecutor change sensor mode from poke to reschedule. Some sensors don't work correctly
+    in reschedule mode. They are decorated with `poke_mode_only` decorator to fail when mode is changed.
+    This method creates dummy property to overwrite it and force poke method to always return True.
+    """
+    cls.mode = dummy_mode_property()
+    cls.poke = lambda self, ctx: True
+
+
+def dummy_mode_property():
+    def mode_getter(self):
+        return self._mode
+
+    def mode_setter(self, value):
+        self._mode = value
+
+    return property(mode_getter, mode_setter)
+
+
 with models.DAG(
     DAG_ID,
-    schedule='@once',
+    schedule="@once",
     start_date=datetime(2021, 1, 1),
     catchup=False,
     tags=["gcs", "example"],
@@ -56,6 +78,8 @@ with models.DAG(
     create_bucket = GCSCreateBucketOperator(
         task_id="create_bucket", bucket_name=BUCKET_NAME, project_id=PROJECT_ID
     )
+
+    workaround_in_debug_executor(GCSUploadSessionCompleteSensor)
 
     # [START howto_sensor_gcs_upload_session_complete_task]
     gcs_upload_session_complete = GCSUploadSessionCompleteSensor(
@@ -77,6 +101,12 @@ with models.DAG(
     )
     # [END howto_sensor_object_update_exists_task]
 
+    # [START howto_sensor_object_update_exists_task_async]
+    gcs_update_object_exists_async = GCSObjectUpdateSensor(
+        bucket=BUCKET_NAME, object=FILE_NAME, task_id="gcs_object_update_sensor_task_async", deferrable=True
+    )
+    # [END howto_sensor_object_update_exists_task_async]
+
     upload_file = LocalFilesystemToGCSOperator(
         task_id="upload_file",
         src=UPLOAD_FILE_PATH,
@@ -88,25 +118,46 @@ with models.DAG(
     gcs_object_exists = GCSObjectExistenceSensor(
         bucket=BUCKET_NAME,
         object=FILE_NAME,
-        mode='poke',
         task_id="gcs_object_exists_task",
     )
     # [END howto_sensor_object_exists_task]
+
+    # [START howto_sensor_object_exists_task_async]
+    gcs_object_exists_async = GCSObjectExistenceAsyncSensor(
+        bucket=BUCKET_NAME,
+        object=FILE_NAME,
+        task_id="gcs_object_exists_task_async",
+    )
+    # [END howto_sensor_object_exists_task_async]
+
+    # [START howto_sensor_object_exists_task_defered]
+    gcs_object_exists_defered = GCSObjectExistenceSensor(
+        bucket=BUCKET_NAME, object=FILE_NAME, task_id="gcs_object_exists_defered", deferrable=True
+    )
+    # [END howto_sensor_object_exists_task_defered]
 
     # [START howto_sensor_object_with_prefix_exists_task]
     gcs_object_with_prefix_exists = GCSObjectsWithPrefixExistenceSensor(
         bucket=BUCKET_NAME,
         prefix=FILE_NAME[:5],
-        mode='poke',
         task_id="gcs_object_with_prefix_exists_task",
     )
     # [END howto_sensor_object_with_prefix_exists_task]
+
+    # [START howto_sensor_object_with_prefix_exists_task_async]
+    gcs_object_with_prefix_exists_async = GCSObjectsWithPrefixExistenceSensor(
+        bucket=BUCKET_NAME,
+        prefix=FILE_NAME[:5],
+        task_id="gcs_object_with_prefix_exists_task_async",
+        deferrable=True,
+    )
+    # [END howto_sensor_object_with_prefix_exists_task_async]
 
     delete_bucket = GCSDeleteBucketOperator(
         task_id="delete_bucket", bucket_name=BUCKET_NAME, trigger_rule=TriggerRule.ALL_DONE
     )
 
-    sleep = BashOperator(task_id='sleep', bash_command='sleep 5')
+    sleep = BashOperator(task_id="sleep", bash_command="sleep 5")
 
     chain(
         # TEST SETUP
@@ -114,7 +165,12 @@ with models.DAG(
         sleep,
         upload_file,
         # TEST BODY
-        [gcs_object_exists, gcs_object_with_prefix_exists],
+        [
+            gcs_object_exists,
+            gcs_object_exists_defered,
+            gcs_object_exists_async,
+            gcs_object_with_prefix_exists,
+        ],
         # TEST TEARDOWN
         delete_bucket,
     )

@@ -15,8 +15,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-import unittest
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -32,7 +32,7 @@ CONFIG = {"encoding": "LINEAR16"}
 AUDIO = {"uri": "gs://bucket/object"}
 
 
-class TestCloudSql(unittest.TestCase):
+class TestCloudSql:
     @patch("airflow.providers.google.cloud.operators.speech_to_text.CloudSpeechToTextHook")
     def test_recognize_speech_green_path(self, mock_hook):
         mock_hook.return_value.recognize_speech.return_value = MagicMock()

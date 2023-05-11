@@ -18,11 +18,16 @@
 """
 Example Airflow DAG that shows how to use CampaignManager.
 """
+from __future__ import annotations
+
 import os
 import time
+import uuid
 from datetime import datetime
+from typing import cast
 
 from airflow import models
+from airflow.models.xcom_arg import XComArg
 from airflow.providers.google.cloud.operators.gcs import GCSCreateBucketOperator, GCSDeleteBucketOperator
 from airflow.providers.google.marketing_platform.operators.campaign_manager import (
     GoogleCampaignManagerBatchInsertConversionsOperator,
@@ -49,19 +54,31 @@ ENCRYPTION_ENTITY_ID = int(os.environ.get("ENCRYPTION_ENTITY_ID", 12345))
 DEVICE_ID = os.environ.get("DEVICE_ID", "12345")
 BUCKET_NAME = f"bucket_{DAG_ID}_{ENV_ID}"
 REPORT_NAME = f"report_{DAG_ID}_{ENV_ID}"
+FILE_NAME = f"file_{DAG_ID}_{ENV_ID}"
+ACCOUNT_ID = f"account_{DAG_ID}_{ENV_ID}"
+FORMAT = "CSV"
+
+# For more information, please check
+# https://developers.google.com/doubleclick-advertisers/rest/v4/reports#type
 REPORT = {
+    "kind": "dfareporting#report",
     "type": "STANDARD",
     "name": REPORT_NAME,
+    "fileName": FILE_NAME,
+    "accountId": ACCOUNT_ID,
+    "format": FORMAT,
     "criteria": {
         "dateRange": {
             "kind": "dfareporting#dateRange",
             "relativeDateRange": "LAST_365_DAYS",
         },
-        "dimensions": [{"kind": "dfareporting#sortedDimension", "name": "dfa:advertiser"}],
-        "metricNames": ["dfa:activeViewImpressionDistributionViewable"],
+        "dimensions": [{"kind": "dfareporting#sortedDimension", "name": "campaign"}],
+        "metricNames": ["activeViewImpressionDistributionViewable"],
     },
 }
 
+# For more information, please check
+# https://developers.google.com/doubleclick-advertisers/rest/v4/Conversion
 CONVERSION = {
     "kind": "dfareporting#conversion",
     "floodlightActivityId": FLOODLIGHT_ACTIVITY_ID,
@@ -92,7 +109,7 @@ CONVERSION_UPDATE = {
 
 with models.DAG(
     DAG_ID,
-    schedule='@once',  # Override to match your needs,
+    schedule="@once",  # Override to match your needs,
     start_date=datetime(2021, 1, 1),
     catchup=False,
     tags=["example", "campaign"],
@@ -105,14 +122,14 @@ with models.DAG(
     create_report = GoogleCampaignManagerInsertReportOperator(
         profile_id=PROFILE_ID, report=REPORT, task_id="create_report"
     )
-    report_id = create_report.output["report_id"]
+    report_id = cast(str, XComArg(create_report, key="report_id"))
     # [END howto_campaign_manager_insert_report_operator]
 
     # [START howto_campaign_manager_run_report_operator]
     run_report = GoogleCampaignManagerRunReportOperator(
         profile_id=PROFILE_ID, report_id=report_id, task_id="run_report"
     )
-    file_id = run_report.output["file_id"]
+    file_id = cast(str, XComArg(run_report, key="file_id"))
     # [END howto_campaign_manager_run_report_operator]
 
     # [START howto_campaign_manager_wait_for_operation]
@@ -125,12 +142,13 @@ with models.DAG(
     # [END howto_campaign_manager_wait_for_operation]
 
     # [START howto_campaign_manager_get_report_operator]
+    report_name = f"reports/report_{str(uuid.uuid1())}"
     get_report = GoogleCampaignManagerDownloadReportOperator(
         task_id="get_report",
         profile_id=PROFILE_ID,
         report_id=report_id,
         file_id=file_id,
-        report_name="test_report.csv",
+        report_name=report_name,
         bucket_name=BUCKET_NAME,
     )
     # [END howto_campaign_manager_get_report_operator]

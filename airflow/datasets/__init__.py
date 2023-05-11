@@ -14,7 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from typing import Any, Dict, Optional
+from __future__ import annotations
+
+from typing import Any, ClassVar
+from urllib.parse import urlsplit
 
 import attr
 
@@ -23,5 +26,19 @@ import attr
 class Dataset:
     """A Dataset is used for marking data dependencies between workflows."""
 
-    uri: str
-    extra: Optional[Dict[str, Any]] = None
+    uri: str = attr.field(validator=[attr.validators.min_len(1), attr.validators.max_len(3000)])
+    extra: dict[str, Any] | None = None
+
+    __version__: ClassVar[int] = 1
+
+    @uri.validator
+    def _check_uri(self, attr, uri: str):
+        if uri.isspace():
+            raise ValueError(f"{attr.name} cannot be just whitespace")
+        try:
+            uri.encode("ascii")
+        except UnicodeEncodeError:
+            raise ValueError(f"{attr.name!r} must be ascii")
+        parsed = urlsplit(uri)
+        if parsed.scheme and parsed.scheme.lower() == "airflow":
+            raise ValueError(f"{attr.name!r} scheme `airflow` is reserved")

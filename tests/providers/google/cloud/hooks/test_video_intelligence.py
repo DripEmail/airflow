@@ -15,10 +15,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
-import unittest
+from __future__ import annotations
+
 from unittest import mock
 
+import pytest
 from google.api_core.gapic_v1.method import DEFAULT
 from google.cloud.videointelligence_v1 import enums
 
@@ -31,11 +32,15 @@ OUTPUT_URI = "gs://bucket-name/output-file"
 
 FEATURES = [enums.Feature.LABEL_DETECTION]
 
-ANNOTATE_VIDEO_RESPONSE = {'test': 'test'}
+ANNOTATE_VIDEO_RESPONSE = {"test": "test"}
 
 
-class TestCloudVideoIntelligenceHook(unittest.TestCase):
-    def setUp(self):
+class TestCloudVideoIntelligenceHook:
+    def test_delegate_to_runtime_error(self):
+        with pytest.raises(RuntimeError):
+            CloudVideoIntelligenceHook(gcp_conn_id="GCP_CONN_ID", delegate_to="delegate_to")
+
+    def setup_method(self):
         with mock.patch(
             "airflow.providers.google.cloud.hooks.video_intelligence.CloudVideoIntelligenceHook.__init__",
             new=mock_base_gcp_hook_default_project_id,

@@ -15,14 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# This product contains a modified portion of 'Flask App Builder' developed by Daniel Vaz Gaspar.
-# (https://github.com/dpgaspar/Flask-AppBuilder).
-# Copyright 2013, Daniel Vaz Gaspar
-
+# mypy: disable-error-code=var-annotated
+from __future__ import annotations
 
 import logging
 from functools import reduce
-from typing import Dict, List, Union
 
 from flask import Blueprint, current_app, url_for
 from flask_appbuilder import BaseView, __version__
@@ -45,6 +42,9 @@ from sqlalchemy.orm import Session
 from airflow import settings
 from airflow.configuration import conf
 
+# This product contains a modified portion of 'Flask App Builder' developed by Daniel Vaz Gaspar.
+# (https://github.com/dpgaspar/Flask-AppBuilder).
+# Copyright 2013, Daniel Vaz Gaspar
 # This module contains code imported from FlaskAppbuilder, so lets use _its_ logger name
 log = logging.getLogger("flask_appbuilder.base")
 
@@ -91,7 +91,7 @@ class AirflowAppBuilder:
     You can also create everything as an application factory.
     """
 
-    baseviews: List[Union[BaseView, Session]] = []
+    baseviews: list[BaseView | Session] = []
     security_manager_class = None
     # Flask app
     app = None
@@ -102,9 +102,9 @@ class AirflowAppBuilder:
     # Babel Manager Class
     bm = None
     # dict with addon name has key and intantiated class has value
-    addon_managers = None
+    addon_managers: dict
     # temporary list that hold addon_managers config key
-    _addon_managers = None
+    _addon_managers: list
 
     menu = None
     indexview = None
@@ -117,14 +117,16 @@ class AirflowAppBuilder:
     def __init__(
         self,
         app=None,
-        session=None,
+        session: Session | None = None,
         menu=None,
         indexview=None,
-        base_template='airflow/main.html',
+        base_template="airflow/main.html",
         static_folder="static/appbuilder",
         static_url_path="/appbuilder",
         security_manager_class=None,
-        update_perms=conf.getboolean('webserver', 'UPDATE_FAB_PERMS'),
+        update_perms=conf.getboolean("webserver", "UPDATE_FAB_PERMS"),
+        auth_rate_limited=conf.getboolean("webserver", "AUTH_RATE_LIMITED", fallback=True),
+        auth_rate_limit=conf.get("webserver", "AUTH_RATE_LIMIT", fallback="5 per 40 second"),
     ):
         """
         App-builder constructor.
@@ -146,6 +148,10 @@ class AirflowAppBuilder:
         :param update_perms:
             optional, update permissions flag (Boolean) you can use
             FAB_UPDATE_PERMS config key also
+        :param auth_rate_limited:
+            optional, rate limit authentication attempts if set to True (defaults to True)
+        :param auth_rate_limit:
+            optional, rate limit authentication attempts configuration (defaults "to 5 per 40 second")
         """
         self.baseviews = []
         self._addon_managers = []
@@ -158,6 +164,8 @@ class AirflowAppBuilder:
         self.static_url_path = static_url_path
         self.app = app
         self.update_perms = update_perms
+        self.auth_rate_limited = auth_rate_limited
+        self.auth_rate_limit = auth_rate_limit
         if app is not None:
             self.init_app(app, session)
 
@@ -172,10 +180,13 @@ class AirflowAppBuilder:
         app.config.setdefault("APP_ICON", "")
         app.config.setdefault("LANGUAGES", {"en": {"flag": "gb", "name": "English"}})
         app.config.setdefault("ADDON_MANAGERS", [])
+        app.config.setdefault("RATELIMIT_ENABLED", self.auth_rate_limited)
         app.config.setdefault("FAB_API_MAX_PAGE_SIZE", 100)
         app.config.setdefault("FAB_BASE_TEMPLATE", self.base_template)
         app.config.setdefault("FAB_STATIC_FOLDER", self.static_folder)
         app.config.setdefault("FAB_STATIC_URL_PATH", self.static_url_path)
+        app.config.setdefault("AUTH_RATE_LIMITED", self.auth_rate_limited)
+        app.config.setdefault("AUTH_RATE_LIMIT", self.auth_rate_limit)
 
         self.app = app
 
@@ -217,12 +228,24 @@ class AirflowAppBuilder:
         else:
             self.post_init()
         self._init_extension(app)
+        self._swap_url_filter()
 
     def _init_extension(self, app):
         app.appbuilder = self
         if not hasattr(app, "extensions"):
             app.extensions = {}
         app.extensions["appbuilder"] = self
+
+    def _swap_url_filter(self):
+        """
+        Use our url filtering util function so there is consistency between
+        FAB and Airflow routes
+        """
+        from flask_appbuilder.security import views as fab_sec_views
+
+        from airflow.www.views import get_safe_url
+
+        fab_sec_views.get_safe_redirect = get_safe_url
 
     def post_init(self):
         for baseview in self.baseviews:
@@ -295,7 +318,7 @@ class AirflowAppBuilder:
     def _add_global_static(self):
         bp = Blueprint(
             "appbuilder",
-            'flask_appbuilder.base',
+            "flask_appbuilder.base",
             url_prefix="/static",
             template_folder="templates",
             static_folder=self.static_folder,
@@ -329,7 +352,7 @@ class AirflowAppBuilder:
                     log.error(LOGMSG_ERR_FAB_ADDON_PROCESS.format(addon, e))
 
     def _check_and_init(self, baseview):
-        if hasattr(baseview, 'datamodel'):
+        if hasattr(baseview, "datamodel"):
             baseview.datamodel.session = self.session
         if hasattr(baseview, "__call__"):
             baseview = baseview()
@@ -421,6 +444,7 @@ class AirflowAppBuilder:
             if self.app:
                 self.register_blueprint(baseview)
                 self._add_permission(baseview)
+                self.add_limits(baseview)
         self.add_link(
             name=name,
             href=href,
@@ -538,7 +562,7 @@ class AirflowAppBuilder:
         """
         self.sm.security_cleanup(self.baseviews, self.menu)
 
-    def security_converge(self, dry=False) -> Dict:
+    def security_converge(self, dry=False) -> dict:
         """
             This method is useful when you use:
             - `class_permission_name`
@@ -550,6 +574,11 @@ class AirflowAppBuilder:
         :return: Dict with all computed necessary operations
         """
         return self.sm.security_converge(self.baseviews, self.menu, dry)
+
+    def get_url_for_login_with(self, next_url: str | None = None) -> str:
+        if self.sm.auth_view is None:
+            return ""
+        return url_for(f"{self.sm.auth_view.endpoint}.{'login'}", next=next_url)
 
     @property
     def get_url_for_login(self):
@@ -572,6 +601,10 @@ class AirflowAppBuilder:
             f"{self.bm.locale_view.endpoint}.{self.bm.locale_view.default_view}",
             locale=lang,
         )
+
+    def add_limits(self, baseview) -> None:
+        if hasattr(baseview, "limits"):
+            self.sm.add_limit_view(baseview)
 
     def add_permissions(self, update_perms=False):
         if self.update_perms or update_perms:
@@ -623,11 +656,11 @@ class AirflowAppBuilder:
                         view.get_init_inner_views().append(v)
 
 
-def init_appbuilder(app):
+def init_appbuilder(app) -> AirflowAppBuilder:
     """Init `Flask App Builder <https://flask-appbuilder.readthedocs.io/en/latest/>`__."""
     from airflow.www.security import AirflowSecurityManager
 
-    security_manager_class = app.config.get('SECURITY_MANAGER_CLASS') or AirflowSecurityManager
+    security_manager_class = app.config.get("SECURITY_MANAGER_CLASS") or AirflowSecurityManager
 
     if not issubclass(security_manager_class, AirflowSecurityManager):
         raise Exception(
@@ -635,10 +668,12 @@ def init_appbuilder(app):
              not FAB's security manager."""
         )
 
-    AirflowAppBuilder(
+    return AirflowAppBuilder(
         app=app,
         session=settings.Session,
         security_manager_class=security_manager_class,
-        base_template='airflow/main.html',
-        update_perms=conf.getboolean('webserver', 'UPDATE_FAB_PERMS'),
+        base_template="airflow/main.html",
+        update_perms=conf.getboolean("webserver", "UPDATE_FAB_PERMS"),
+        auth_rate_limited=conf.getboolean("webserver", "AUTH_RATE_LIMITED", fallback=True),
+        auth_rate_limit=conf.get("webserver", "AUTH_RATE_LIMIT", fallback="5 per 40 second"),
     )

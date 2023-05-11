@@ -15,12 +15,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
 """
 Example Airflow DAG for Google BigQuery service.
 """
+from __future__ import annotations
+
 import os
 from datetime import datetime
+
+import pytest
 
 from airflow import models
 from airflow.providers.google.cloud.operators.bigquery import (
@@ -28,7 +31,11 @@ from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryCreateEmptyTableOperator,
     BigQueryDeleteDatasetOperator,
 )
-from airflow.providers.google.cloud.transfers.bigquery_to_mssql import BigQueryToMsSqlOperator
+
+try:
+    from airflow.providers.google.cloud.transfers.bigquery_to_mssql import BigQueryToMsSqlOperator
+except ImportError:
+    pytest.skip("MySQL not available", allow_module_level=True)
 
 ENV_ID = os.environ.get("SYSTEM_TESTS_ENV_ID")
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "example-project")
@@ -46,12 +53,14 @@ with models.DAG(
     catchup=False,
     tags=["example", "bigquery"],
 ) as dag:
+    # [START howto_operator_bigquery_to_mssql]
     bigquery_to_mssql = BigQueryToMsSqlOperator(
         task_id="bigquery_to_mssql",
-        source_project_dataset_table=f'{PROJECT_ID}.{DATASET_NAME}.{TABLE}',
+        source_project_dataset_table=f"{PROJECT_ID}.{DATASET_NAME}.{TABLE}",
         mssql_table=destination_table,
         replace=False,
     )
+    # [END howto_operator_bigquery_to_mssql]
 
     create_dataset = BigQueryCreateEmptyDatasetOperator(task_id="create_dataset", dataset_id=DATASET_NAME)
 

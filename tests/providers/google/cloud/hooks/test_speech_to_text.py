@@ -15,11 +15,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
+from __future__ import annotations
 
-import unittest
 from unittest.mock import patch
 
+import pytest
 from google.api_core.gapic_v1.method import DEFAULT
 
 from airflow.providers.google.cloud.hooks.speech_to_text import CloudSpeechToTextHook
@@ -31,8 +31,12 @@ CONFIG = {"encryption": "LINEAR16"}
 AUDIO = {"uri": "gs://bucket/object"}
 
 
-class TestTextToSpeechOperator(unittest.TestCase):
-    def setUp(self):
+class TestTextToSpeechOperator:
+    def test_delegate_to_runtime_error(self):
+        with pytest.raises(RuntimeError):
+            CloudSpeechToTextHook(gcp_conn_id="GCP_CONN_ID", delegate_to="delegate_to")
+
+    def setup_method(self):
         with patch(
             "airflow.providers.google.common.hooks.base_google.GoogleBaseHook.__init__",
             new=mock_base_gcp_hook_default_project_id,

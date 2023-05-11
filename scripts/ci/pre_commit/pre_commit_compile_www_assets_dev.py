@@ -15,6 +15,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
+
 import os
 import subprocess
 from pathlib import Path
@@ -25,9 +27,37 @@ if __name__ not in ("__main__", "__mp_main__"):
         f"To run this script, run the ./{__file__} command"
     )
 
-if __name__ == '__main__':
-    dir = Path("airflow") / "www"
+AIRFLOW_SOURCES_PATH = Path(__file__).parents[3].resolve()
+WWW_CACHE_DIR = AIRFLOW_SOURCES_PATH / ".build" / "www"
+WWW_HASH_FILE = WWW_CACHE_DIR / "hash.txt"
+WWW_ASSET_OUT_FILE = WWW_CACHE_DIR / "asset_compile.out"
+WWW_ASSET_OUT_DEV_MODE_FILE = WWW_CACHE_DIR / "asset_compile_dev_mode.out"
+
+if __name__ == "__main__":
+    www_directory = AIRFLOW_SOURCES_PATH / "airflow" / "www"
+    WWW_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    if WWW_HASH_FILE.exists():
+        # cleanup hash of www so that next compile-assets recompiles them
+        WWW_HASH_FILE.unlink()
     env = os.environ.copy()
-    env['FORCE_COLOR'] = "true"
-    subprocess.check_call(['yarn', 'install', '--frozen-lockfile'], cwd=str(dir))
-    subprocess.check_call(['yarn', 'dev'], cwd=str(dir), env=env)
+    env["FORCE_COLOR"] = "true"
+    try:
+        WWW_ASSET_OUT_FILE.unlink()
+    except FileNotFoundError:
+        pass
+    with open(WWW_ASSET_OUT_DEV_MODE_FILE, "w") as f:
+        subprocess.run(
+            ["yarn", "install", "--frozen-lockfile"],
+            cwd=os.fspath(www_directory),
+            check=True,
+            stdout=f,
+            stderr=subprocess.STDOUT,
+        )
+        subprocess.run(
+            ["yarn", "dev"],
+            check=True,
+            cwd=os.fspath(www_directory),
+            env=env,
+            stdout=f,
+            stderr=subprocess.STDOUT,
+        )
