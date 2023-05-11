@@ -117,7 +117,7 @@ class S3KeySensor(BaseSensorOperator):
         else:
             obj = self.hook.head_object(key, bucket_name)
             if obj is None:
-                return Falsex
+                return False
             files = [{"Size": obj["ContentLength"], "LastModified": obj["LastModified"]}]
         if self.check_fn is not None:
             return self.check_fn(files)
