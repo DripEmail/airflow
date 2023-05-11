@@ -214,7 +214,7 @@ class TestS3KeySensor:
         mock_get_file_metadata.assert_any_call("", "test_bucket")
 
     @mock.patch("airflow.providers.amazon.aws.sensors.s3.S3Hook.head_object")
-    def test_poke_with_check_function(self, mock_head_object):
+    def test_poke_with_check_function_for_size(self, mock_head_object):
         def check_fn(files: list) -> bool:
             return all(f.get("Size", 0) > 0 for f in files)
 
@@ -224,4 +224,18 @@ class TestS3KeySensor:
         assert op.poke(None) is False
 
         mock_head_object.return_value = {"ContentLength": 1}
+        assert op.poke(None) is True
+
+
+    @mock.patch("airflow.providers.amazon.aws.sensors.s3.S3Hook.head_object")
+    def test_poke_with_check_function_for_last_modified(self, mock_head_object):
+        def check_fn(files: list) -> bool:
+            return all(f.get("LastModified", "2000-01-01") > "2010-01-01 for f in files)
+
+        op = S3KeySensor(task_id="s3_key_sensor", bucket_key="s3://test_bucket/file", check_fn=check_fn)
+
+        mock_head_object.return_value = {"LastModified": "2005-01-01"}
+        assert op.poke(None) is False
+
+        mock_head_object.return_value = {"LastModified": "2015-01-01"}
         assert op.poke(None) is True
