@@ -246,11 +246,10 @@ class TestS3KeySensor:
             sensor.execute_complete(context={}, event={"status": "running", "files": [{"Size": 10}]}) is None
         )
 
-
     @mock.patch("airflow.providers.amazon.aws.sensors.s3.S3Hook.head_object")
     def test_poke_with_check_function_for_last_modified(self, mock_head_object):
         def check_fn(files: list) -> bool:
-            return all(f.get("LastModified", "2000-01-01") > "2010-01-01 for f in files)
+            return all(f.get("LastModified", "2000-01-01") > "2010-01-01" for f in files)
 
         op = S3KeySensor(task_id="s3_key_sensor", bucket_key="s3://test_bucket/file", check_fn=check_fn)
 
