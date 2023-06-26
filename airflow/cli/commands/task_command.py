@@ -398,7 +398,7 @@ def task_run(args, dag: DAG | None = None) -> TaskReturnCode | None:
         print(f"Loading pickle id: {args.pickle}")
         _dag = get_dag_by_pickle(args.pickle)
     elif not dag:
-        _dag = get_dag(args.subdir, args.dag_id)
+        _dag = get_dag(args.subdir, args.dag_id, args.read_from_db)
     else:
         _dag = dag
     task = _dag.get_task(task_id=args.task_id)
@@ -467,6 +467,7 @@ def task_failed_deps(args) -> None:
 def task_state(args) -> None:
     """
     Returns the state of a TaskInstance at the command line.
+
     >>> airflow tasks state tutorial sleep 2015-01-01
     success
     """

@@ -17,12 +17,12 @@
 # under the License.
 from __future__ import annotations
 
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Sequence
 
 if TYPE_CHECKING:
     from airflow.utils.context import Context
 
-from airflow.compat.functools import cached_property
 from airflow.exceptions import AirflowException
 from airflow.providers.amazon.aws.hooks.athena import AthenaHook
 from airflow.sensors.base import BaseSensorOperator
@@ -76,7 +76,7 @@ class AthenaSensor(BaseSensorOperator):
         self.max_retries = max_retries
 
     def poke(self, context: Context) -> bool:
-        state = self.hook.poll_query_status(self.query_execution_id, self.max_retries)
+        state = self.hook.poll_query_status(self.query_execution_id, self.max_retries, self.sleep_time)
 
         if state in self.FAILURE_STATES:
             raise AirflowException("Athena sensor failed")
@@ -87,5 +87,5 @@ class AthenaSensor(BaseSensorOperator):
 
     @cached_property
     def hook(self) -> AthenaHook:
-        """Create and return an AthenaHook"""
-        return AthenaHook(self.aws_conn_id, sleep_time=self.sleep_time)
+        """Create and return an AthenaHook."""
+        return AthenaHook(self.aws_conn_id)

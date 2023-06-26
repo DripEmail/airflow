@@ -21,6 +21,148 @@
 
 .. towncrier release notes start
 
+Airflow 2.6.2 (2023-06-17)
+--------------------------
+
+Significant Changes
+^^^^^^^^^^^^^^^^^^^
+
+No significant changes.
+
+Bug Fixes
+^^^^^^^^^
+- Cascade update of TaskInstance to TaskMap table (#31445)
+- Fix Kubernetes executors detection of deleted pods (#31274)
+- Use keyword parameters for migration methods for mssql (#31309)
+- Control permissibility of driver config in extra from airflow.cfg (#31754)
+- Fixing broken links in openapi/v1.yaml (#31619)
+- Hide old alert box when testing connection with different value (#31606)
+- Add TriggererStatus to OpenAPI spec (#31579)
+- Resolving issue where Grid won't un-collapse when Details is collapsed (#31561)
+- Fix sorting of tags (#31553)
+- Add the missing ``map_index`` to the xcom key when skipping downstream tasks (#31541)
+- Fix airflow users delete CLI command (#31539)
+- Include triggerer health status in Airflow ``/health`` endpoint (#31529)
+- Remove dependency already registered for this task warning (#31502)
+- Use kube_client over default CoreV1Api for deleting pods (#31477)
+- Ensure min backoff in base sensor is at least 1 (#31412)
+- Fix ``max_active_tis_per_dagrun`` for Dynamic Task Mapping (#31406)
+- Fix error handling when pre-importing modules in DAGs (#31401)
+- Fix dropdown default and adjust tutorial to use 42 as default for proof (#31400)
+- Fix crash when clearing run with task from normal to mapped (#31352)
+- Make BaseJobRunner a generic on the job class (#31287)
+- Fix ``url_for_asset`` fallback and 404 on DAG Audit Log (#31233)
+- Don't present an undefined execution date (#31196)
+- Added spinner activity while the logs load (#31165)
+- Include rediss to the list of supported URL schemes (#31028)
+- Optimize scheduler by skipping "non-schedulable" DAGs (#30706)
+- Save scheduler execution time during search for queued dag_runs (#30699)
+- Fix ExternalTaskSensor to work correctly with task groups (#30742)
+- Fix DAG.access_control can't sync when clean access_control (#30340)
+- Fix failing get_safe_url tests for latest Python 3.8 and 3.9 (#31766)
+- Fix typing for POST user endpoint (#31767)
+- Fix wrong update for nested group default args (#31776)
+- Fix overriding ``default_args`` in nested task groups (#31608)
+- Mark ``[secrets] backend_kwargs`` as a sensitive config (#31788)
+- Executor events are not always "exited" here (#30859)
+- Validate connection IDs (#31140)
+
+Misc/Internal
+"""""""""""""
+- Add Python 3.11 support (#27264)
+- Replace unicodecsv with standard csv library (#31693)
+- Bring back unicodecsv as dependency of Airflow (#31814)
+- Remove found_descendents param from get_flat_relative_ids (#31559)
+- Fix typing in external task triggers (#31490)
+- Wording the next and last run DAG columns better (#31467)
+- Skip auto-document things with :meta private: (#31380)
+- Add an example for sql_alchemy_connect_args conf (#31332)
+- Convert dask upper-binding into exclusion (#31329)
+- Upgrade FAB to 4.3.1 (#31203)
+- Added metavar and choices to --state flag in airflow dags list-jobs CLI for suggesting valid state arguments. (#31308)
+- Use only one line for tmp dir log (#31170)
+- Rephrase comment in setup.py (#31312)
+- Add fullname to owner on logging (#30185)
+- Make connection id validation consistent across interface (#31282)
+- Use single source of truth for sensitive config items (#31820)
+
+Doc only changes
+^^^^^^^^^^^^^^^^
+- Add docstring and signature for _read_remote_logs (#31623)
+- Remove note about triggerer being 3.7+ only (#31483)
+- Fix version support information (#31468)
+- Add missing BashOperator import to documentation example (#31436)
+- Fix task.branch error caused by incorrect initial parameter (#31265)
+- Update callbacks documentation (errors and context) (#31116)
+- Add an example for dynamic task mapping with non-TaskFlow operator (#29762)
+- Few doc fixes - links, grammar and wording (#31719)
+- Add description in a few more places about adding airflow to pip install (#31448)
+- Fix table formatting in docker build documentation (#31472)
+- Update documentation for constraints installation (#31882)
+
+Airflow 2.6.1 (2023-05-16)
+--------------------------
+
+Significant Changes
+^^^^^^^^^^^^^^^^^^^
+
+Clarifications of the external Health Check mechanism and using ``Job`` classes (#31277).
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+In the past SchedulerJob and other ``*Job`` classes are known to have been used to perform
+external health checks for Airflow components. Those are, however, Airflow DB ORM related classes.
+The DB models and database structure of Airflow are considered as internal implementation detail, following
+`public interface <https://airflow.apache.org/docs/apache-airflow/stable/public-airflow-interface.html>`_).
+Therefore, they should not be used for external health checks. Instead, you should use the
+``airflow jobs check`` CLI command (introduced in Airflow 2.1) for that purpose.
+
+Bug Fixes
+^^^^^^^^^
+- Fix calculation of health check threshold for SchedulerJob (#31277)
+- Fix timestamp parse failure for k8s executor pod tailing (#31175)
+- Make sure that DAG processor job row has filled value in ``job_type`` column (#31182)
+- Fix section name reference for ``api_client_retry_configuration`` (#31174)
+- Ensure the KPO runs pod mutation hooks correctly (#31173)
+- Remove worrying log message about redaction from the OpenLineage plugin (#31149)
+- Move ``interleave_timestamp_parser`` config to the logging section (#31102)
+- Ensure that we check worker for served logs if no local or remote logs found (#31101)
+- Fix ``MappedTaskGroup`` import in taskinstance file (#31100)
+- Format DagBag.dagbag_report() Output (#31095)
+- Mask task attribute on task detail view (#31125)
+- Fix template error when iterating None value and fix params documentation (#31078)
+- Fix ``apache-hive`` extra so it installs the correct package (#31068)
+- Fix issue with zip files in DAGs folder when pre-importing Airflow modules (#31061)
+- Move TaskInstanceKey to a separate file to fix circular import (#31033, #31204)
+- Fix deleting DagRuns and TaskInstances that have a note (#30987)
+- Fix ``airflow providers get`` command output (#30978)
+- Fix Pool schema in the OpenAPI spec (#30973)
+- Add support for dynamic tasks with template fields that contain ``pandas.DataFrame`` (#30943)
+- Use the Task Group explicitly passed to 'partial' if any (#30933)
+- Fix ``order_by`` request in list DAG rest api (#30926)
+- Include node height/width in center-on-task logic (#30924)
+- Remove print from dag trigger command (#30921)
+- Improve task group UI in new graph (#30918)
+- Fix mapped states in grid view (#30916)
+- Fix problem with displaying graph (#30765)
+- Fix backfill KeyError when try_number out of sync (#30653)
+- Re-enable clear and setting state in the TaskInstance UI (#30415)
+- Prevent DagRun's ``state`` and ``start_date`` from being reset when clearing a task in a running DagRun (#30125)
+
+Misc/Internal
+"""""""""""""
+- Upper bind dask until they solve a side effect in their test suite (#31259)
+- Show task instances affected by clearing in a table (#30633)
+- Fix missing models in API documentation (#31021)
+
+Doc only changes
+""""""""""""""""
+- Improve description of the ``dag_processing.processes`` metric (#30891)
+- Improve Quick Start instructions (#30820)
+- Add section about missing task logs to the FAQ (#30717)
+- Mount the ``config`` directory in docker compose (#30662)
+- Update ``version_added`` config field for ``might_contain_dag`` and ``metrics_allow_list`` (#30969)
+
+
 Airflow 2.6.0 (2023-04-30)
 --------------------------
 
@@ -89,6 +231,11 @@ Move Hive macros to the provider (#28538)
 """""""""""""""""""""""""""""""""""""""""
 The Hive Macros (``hive.max_partition``, ``hive.closest_ds_partition``) are available only when Hive Provider is
 installed. Please install Hive Provider > 5.1.0 when using those macros.
+
+Updated app to support configuring the caching hash method for FIPS v2 (#30675)
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+Various updates for FIPS-compliance when running Airflow in Python 3.9+. This includes a new webserver option, ``caching_hash_method``,
+for changing the default flask caching method.
 
 New Features
 ^^^^^^^^^^^^

@@ -85,6 +85,7 @@ from airflow.triggers.base import BaseTrigger
 from airflow.utils import timezone
 from airflow.utils.context import Context
 from airflow.utils.decorators import fixup_decorator_warning_stack
+from airflow.utils.edgemodifier import EdgeModifier
 from airflow.utils.helpers import validate_key
 from airflow.utils.operator_resources import Resources
 from airflow.utils.session import NEW_SESSION, provide_session
@@ -720,9 +721,24 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
     # Set to True for an operator instantiated by a mapped operator.
     __from_mapped = False
 
-    _is_setup = False
-    _is_teardown = False
-    _on_failure_fail_dagrun = False
+    is_setup = False
+    """
+    Whether the operator is a setup task
+
+    :meta private:
+    """
+    is_teardown = False
+    """
+    Whether the operator is a teardown task
+
+    :meta private:
+    """
+    on_failure_fail_dagrun = False
+    """
+    Whether the operator should fail the dagrun on failure
+
+    :meta private:
+    """
 
     def __init__(
         self,
@@ -963,7 +979,7 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
     @classmethod
     def as_setup(cls, *args, **kwargs):
         op = cls(*args, **kwargs)
-        op._is_setup = True
+        op.is_setup = True
         return op
 
     @classmethod
@@ -972,12 +988,12 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
         if "trigger_rule" in kwargs:
             raise ValueError("Cannot set trigger rule for teardown tasks.")
         op = cls(*args, **kwargs, trigger_rule=TriggerRule.ALL_DONE_SETUP_SUCCESS)
-        op._is_teardown = True
-        op._on_failure_fail_dagrun = on_failure_fail_dagrun
+        op.is_teardown = True
+        op.on_failure_fail_dagrun = on_failure_fail_dagrun
         return op
 
     def __enter__(self):
-        if not self._is_setup and not self._is_teardown:
+        if not self.is_setup and not self.is_teardown:
             raise AirflowException("Only setup/teardown tasks can be used as context managers.")
         SetupTeardownContext.push_setup_teardown_task(self)
         return self
@@ -1043,7 +1059,7 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
     def __lt__(self, other):
         """
         Called for [Inlet] > [Operator] or [Operator] < [Inlet], so that if other is
-        an attr annotated object it is set as an inlet to this operator
+        an attr annotated object it is set as an inlet to this operator.
         """
         if not isinstance(other, Iterable):
             other = [other]
@@ -1069,19 +1085,25 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
             self.set_xcomargs_dependencies()
 
     def add_inlets(self, inlets: Iterable[Any]):
-        """Sets inlets to this operator"""
+        """Sets inlets to this operator."""
         self.inlets.extend(inlets)
 
     def add_outlets(self, outlets: Iterable[Any]):
-        """Defines the outlets of this operator"""
+        """Defines the outlets of this operator."""
         self.outlets.extend(outlets)
 
     def get_inlet_defs(self):
-        """:meta private:"""
+        """Gets inlet definitions on this task.
+
+        :meta private:
+        """
         return self.inlets
 
     def get_outlet_defs(self):
-        """:meta private:"""
+        """Gets outlet definitions on this task.
+
+        :meta private:
+        """
         return self.outlets
 
     def get_dag(self) -> DAG | None:
@@ -1089,7 +1111,7 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
 
     @property  # type: ignore[override]
     def dag(self) -> DAG:  # type: ignore[override]
-        """Returns the Operator's DAG if set, otherwise raises an error"""
+        """Returns the Operator's DAG if set, otherwise raises an error."""
         if self._dag:
             return self._dag
         else:
@@ -1141,7 +1163,7 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
     def prepare_for_execution(self) -> BaseOperator:
         """
         Lock task for execution to disable custom action in __setattr__ and
-        returns a copy of the task
+        returns a copy of the task.
         """
         other = copy.copy(self)
         other._lock_for_execution = True
@@ -1407,12 +1429,12 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
 
     @property
     def task_type(self) -> str:
-        """@property: type of the task"""
+        """@property: type of the task."""
         return self.__class__.__name__
 
     @property
     def operator_name(self) -> str:
-        """@property: use a more friendly display name for the operator, if set"""
+        """@property: use a more friendly display name for the operator, if set."""
         try:
             return self.custom_operator_name  # type: ignore
         except AttributeError:
@@ -1430,7 +1452,7 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
 
     @property
     def output(self) -> XComArg:
-        """Returns reference to XCom pushed by current operator"""
+        """Returns reference to XCom pushed by current operator."""
         from airflow.models.xcom_arg import XComArg
 
         return XComArg(operator=self)
@@ -1456,12 +1478,14 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
         context["ti"].xcom_push(key=key, value=value, execution_date=execution_date)
 
     @staticmethod
+    @provide_session
     def xcom_pull(
         context: Any,
         task_ids: str | list[str] | None = None,
         dag_id: str | None = None,
         key: str = XCOM_RETURN_KEY,
         include_prior_dates: bool | None = None,
+        session: Session = NEW_SESSION,
     ) -> Any:
         """
         Pull XComs that optionally meet certain criteria.
@@ -1490,7 +1514,11 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
             are returned as well.
         """
         return context["ti"].xcom_pull(
-            key=key, task_ids=task_ids, dag_id=dag_id, include_prior_dates=include_prior_dates
+            key=key,
+            task_ids=task_ids,
+            dag_id=dag_id,
+            include_prior_dates=include_prior_dates,
+            session=session,
         )
 
     @classmethod
@@ -1528,9 +1556,9 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
                     "template_fields",
                     "template_fields_renderers",
                     "params",
-                    "_is_setup",
-                    "_is_teardown",
-                    "_on_failure_fail_dagrun",
+                    "is_setup",
+                    "is_teardown",
+                    "on_failure_fail_dagrun",
                 }
             )
             DagContext.pop_context_managed_dag()
@@ -1543,7 +1571,7 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
 
     @property
     def inherits_from_empty_operator(self):
-        """Used to determine if an Operator is inherited from EmptyOperator"""
+        """Used to determine if an Operator is inherited from EmptyOperator."""
         # This looks like `isinstance(self, EmptyOperator) would work, but this also
         # needs to cope when `self` is a Serialized instance of a EmptyOperator or one
         # of its subclasses (which don't inherit from anything but BaseOperator).
@@ -1567,7 +1595,13 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
         raise TaskDeferred(trigger=trigger, method_name=method_name, kwargs=kwargs, timeout=timeout)
 
     def unmap(self, resolve: None | dict[str, Any] | tuple[Context, Session]) -> BaseOperator:
-        """:meta private:"""
+        """Get the "normal" operator from the current operator.
+
+        Since a BaseOperator is not mapped to begin with, this simply returns
+        the original operator.
+
+        :meta private:
+        """
         return self
 
 
@@ -1803,6 +1837,37 @@ def cross_downstream(
     """
     for task in from_tasks:
         task.set_downstream(to_tasks)
+
+
+def chain_linear(*elements: DependencyMixin | Sequence[DependencyMixin]):
+    """
+    Helper to simplify task dependency definition.
+
+    E.g.: suppose you want precedence like so::
+
+            ╭─op2─╮ ╭─op4─╮
+        op1─┤     ├─├─op5─┤─op7
+            ╰-op3─╯ ╰-op6─╯
+
+    Then you can accomplish like so::
+
+        chain_linear(
+            op1,
+            [op2, op3],
+            [op4, op5, op6],
+            op7
+        )
+
+    :param elements: a list of operators / lists of operators
+    """
+    prev_elem = None
+    for curr_elem in elements:
+        if isinstance(curr_elem, EdgeModifier):
+            raise ValueError("Labels are not supported by chain_linear")
+        if prev_elem is not None:
+            for task in prev_elem:
+                task >> curr_elem
+        prev_elem = [curr_elem] if isinstance(curr_elem, DependencyMixin) else curr_elem
 
 
 # pyupgrade assumes all type annotations can be lazily evaluated, but this is

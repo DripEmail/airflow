@@ -22,7 +22,7 @@ import datetime
 import importlib
 import time
 from threading import Thread
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pendulum
 import pytest
@@ -37,7 +37,7 @@ from airflow.models.baseoperator import BaseOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from airflow.triggers.base import TriggerEvent
-from airflow.triggers.temporal import TimeDeltaTrigger
+from airflow.triggers.temporal import DateTimeTrigger, TimeDeltaTrigger
 from airflow.triggers.testing import FailureTrigger, SuccessTrigger
 from airflow.utils import timezone
 from airflow.utils.log.logging_mixin import RedirectStdHandler
@@ -143,7 +143,11 @@ def test_trigger_logging_sensitive_info(session, capsys):
     finally:
         # We always have to stop the runner
         triggerer_job_runner.trigger_runner.stop = True
+    # Since we have now an in-memory process of forwarding the logs to stdout,
+    # give it more time for the trigger event to write the log.
+    time.sleep(0.5)
     stdout = capsys.readouterr().out
+
     assert "test_dag/test_run/sensitive_arg_task/-1/1 (ID 1) starting" in stdout
     assert "some_password" not in stdout
 
@@ -253,6 +257,51 @@ def test_trigger_lifecycle(session):
     finally:
         # We always have to stop the runner
         job_runner.trigger_runner.stop = True
+
+
+class TestTriggerRunner:
+    @pytest.mark.asyncio
+    @patch("airflow.jobs.triggerer_job_runner.TriggerRunner.set_individual_trigger_logging")
+    async def test_run_trigger_canceled(self, session) -> None:
+        trigger_runner = TriggerRunner()
+        trigger_runner.triggers = {1: {"task": MagicMock(), "name": "mock_name", "events": 0}}
+        mock_trigger = MagicMock()
+        mock_trigger.task_instance.trigger_timeout = None
+        mock_trigger.run.side_effect = asyncio.CancelledError()
+
+        with pytest.raises(asyncio.CancelledError):
+            await trigger_runner.run_trigger(1, mock_trigger)
+
+    @pytest.mark.asyncio
+    @patch("airflow.jobs.triggerer_job_runner.TriggerRunner.set_individual_trigger_logging")
+    async def test_run_trigger_timeout(self, session, caplog) -> None:
+        trigger_runner = TriggerRunner()
+        trigger_runner.triggers = {1: {"task": MagicMock(), "name": "mock_name", "events": 0}}
+        mock_trigger = MagicMock()
+        mock_trigger.task_instance.trigger_timeout = timezone.utcnow() - datetime.timedelta(hours=1)
+        mock_trigger.run.side_effect = asyncio.CancelledError()
+
+        with pytest.raises(asyncio.CancelledError):
+            await trigger_runner.run_trigger(1, mock_trigger)
+        assert "Trigger cancelled due to timeout" in caplog.text
+
+    @patch("airflow.models.trigger.Trigger.bulk_fetch")
+    @patch(
+        "airflow.jobs.triggerer_job_runner.TriggerRunner.get_trigger_by_classpath",
+        return_value=DateTimeTrigger,
+    )
+    def test_update_trigger_with_triggerer_argument_change(
+        self, mock_bulk_fetch, mock_get_trigger_by_classpath, session, caplog
+    ) -> None:
+        trigger_runner = TriggerRunner()
+        mock_trigger_orm = MagicMock()
+        mock_trigger_orm.kwargs = {"moment": ..., "not_exists_arg": ...}
+        mock_get_trigger_by_classpath.return_value = {1: mock_trigger_orm}
+
+        trigger_runner.update_triggers({1})
+
+        assert "Trigger failed" in caplog.text
+        assert "got an unexpected keyword argument 'not_exists_arg'" in caplog.text
 
 
 def test_trigger_create_race_condition_18392(session, tmp_path):

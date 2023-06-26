@@ -31,6 +31,7 @@ from google.cloud.bigquery import (
     LoadJob,
     QueryJob,
     SchemaField,
+    UnknownJob,
 )
 from google.cloud.bigquery.table import EncryptionConfiguration, Table, TableReference
 
@@ -147,10 +148,11 @@ class GCSToBigQueryOperator(BaseOperator):
         If autodetect is None and no schema is provided (neither via schema_fields
         nor a schema_object), assume the table already exists.
     :param encryption_configuration: [Optional] Custom encryption configuration (e.g., Cloud KMS keys).
-        **Example**: ::
+
+        .. code-block:: python
 
             encryption_configuration = {
-                "kmsKeyName": "projects/testp/locations/us/keyRings/test-kr/cryptoKeys/test-key"
+                "kmsKeyName": "projects/testp/locations/us/keyRings/test-kr/cryptoKeys/test-key",
             }
     :param location: [Optional] The geographic location of the job. Required except for US and EU.
         See details at https://cloud.google.com/bigquery/docs/locations#specifying_your_location
@@ -176,6 +178,7 @@ class GCSToBigQueryOperator(BaseOperator):
         "schema_object_bucket",
         "destination_project_dataset_table",
         "impersonation_chain",
+        "src_fmt_configs",
     )
     template_ext: Sequence[str] = (".sql",)
     ui_color = "#f0eee4"
@@ -307,7 +310,7 @@ class GCSToBigQueryOperator(BaseOperator):
         )
 
     @staticmethod
-    def _handle_job_error(job: BigQueryJob) -> None:
+    def _handle_job_error(job: BigQueryJob | UnknownJob) -> None:
         if job.error_result:
             raise AirflowException(f"BigQuery job {job.job_id} failed: {job.error_result}")
 
@@ -374,7 +377,7 @@ class GCSToBigQueryOperator(BaseOperator):
 
             try:
                 self.log.info("Executing: %s", self.configuration)
-                job = self._submit_job(self.hook, job_id)
+                job: BigQueryJob | UnknownJob = self._submit_job(self.hook, job_id)
             except Conflict:
                 # If the job already exists retrieve it
                 job = self.hook.get_job(
@@ -527,6 +530,7 @@ class GCSToBigQueryOperator(BaseOperator):
                 "skipLeadingRows",
                 "quote",
                 "encoding",
+                "preserveAsciiControlCharacters",
             ],
             "googleSheetsOptions": ["skipLeadingRows"],
         }

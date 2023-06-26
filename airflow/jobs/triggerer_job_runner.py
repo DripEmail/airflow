@@ -28,7 +28,7 @@ from collections import deque
 from contextlib import suppress
 from copy import copy
 from queue import SimpleQueue
-from typing import TYPE_CHECKING, Deque
+from typing import TYPE_CHECKING
 
 from sqlalchemy import func
 
@@ -40,6 +40,7 @@ from airflow.serialization.pydantic.job import JobPydantic
 from airflow.stats import Stats
 from airflow.triggers.base import BaseTrigger, TriggerEvent
 from airflow.typing_compat import TypedDict
+from airflow.utils import timezone
 from airflow.utils.log.file_task_handler import FileTaskHandler
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.log.trigger_handler import (
@@ -234,7 +235,7 @@ def setup_queue_listener():
         return None
 
 
-class TriggererJobRunner(BaseJobRunner, LoggingMixin):
+class TriggererJobRunner(BaseJobRunner["Job | JobPydantic"], LoggingMixin):
     """
     TriggererJobRunner continuously runs active triggers in asyncio, watching
     for them to fire off their events and then dispatching that information
@@ -299,7 +300,7 @@ class TriggererJobRunner(BaseJobRunner, LoggingMixin):
     def on_kill(self):
         """
         Called when there is an external kill command (via the heartbeat
-        mechanism, for example)
+        mechanism, for example).
         """
         self.trigger_runner.stop = True
 
@@ -428,16 +429,16 @@ class TriggerRunner(threading.Thread, LoggingMixin):
     trigger_cache: dict[str, type[BaseTrigger]]
 
     # Inbound queue of new triggers
-    to_create: Deque[tuple[int, BaseTrigger]]
+    to_create: deque[tuple[int, BaseTrigger]]
 
     # Inbound queue of deleted triggers
-    to_cancel: Deque[int]
+    to_cancel: deque[int]
 
     # Outbound queue of events
-    events: Deque[tuple[int, TriggerEvent]]
+    events: deque[tuple[int, TriggerEvent]]
 
     # Outbound queue of failed triggers
-    failed_triggers: Deque[tuple[int, BaseException]]
+    failed_triggers: deque[tuple[int, BaseException]]
 
     # Should-we-stop flag
     stop: bool = False
@@ -608,6 +609,13 @@ class TriggerRunner(threading.Thread, LoggingMixin):
                 self.log.info("Trigger %s fired: %s", self.triggers[trigger_id]["name"], event)
                 self.triggers[trigger_id]["events"] += 1
                 self.events.append((trigger_id, event))
+        except asyncio.CancelledError as err:
+            if timeout := trigger.task_instance.trigger_timeout:
+                timeout = timeout.replace(tzinfo=timezone.utc) if not timeout.tzinfo else timeout
+                if timeout < timezone.utcnow():
+                    self.log.error("Trigger cancelled due to timeout")
+            self.log.error("Trigger cancelled; message=%s", err)
+            raise
         finally:
             # CancelledError will get injected when we're stopped - which is
             # fine, the cleanup process will understand that, but we want to
@@ -627,6 +635,10 @@ class TriggerRunner(threading.Thread, LoggingMixin):
         if not HANDLER_SUPPORTS_TRIGGERER:
             return
         ctx_trigger_end.set(True)
+        # this is a special message required by TriggerHandlerWrapper
+        # it tells the wrapper to close the handler for this trigger
+        # we set level to 100 so that it will not be filtered by user logging settings
+        # it is not emitted; see TriggererHandlerWrapper.handle method.
         trigger.log.log(level=100, msg="trigger end")
 
     def update_triggers(self, requested_trigger_ids: set[int]):
@@ -668,7 +680,14 @@ class TriggerRunner(threading.Thread, LoggingMixin):
                 # Either the trigger code or the path to it is bad. Fail the trigger.
                 self.failed_triggers.append((new_id, e))
                 continue
-            new_trigger_instance = trigger_class(**new_trigger_orm.kwargs)
+
+            try:
+                new_trigger_instance = trigger_class(**new_trigger_orm.kwargs)
+            except TypeError as err:
+                self.log.error("Trigger failed; message=%s", err)
+                self.failed_triggers.append((new_id, err))
+                continue
+
             self.set_trigger_logging_metadata(new_trigger_orm.task_instance, new_id, new_trigger_instance)
             self.to_create.append((new_id, new_trigger_instance))
         # Enqueue orphaned triggers for cancellation
@@ -677,7 +696,7 @@ class TriggerRunner(threading.Thread, LoggingMixin):
 
     def set_trigger_logging_metadata(self, ti: TaskInstance, trigger_id, trigger):
         """
-        Set up logging for triggers
+        Set up logging for triggers.
 
         We want to ensure that each trigger logs to its own file and that the log messages are not
         propagated to parent loggers.

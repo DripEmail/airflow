@@ -125,12 +125,12 @@ class XComArg(ResolveMixin, DependencyMixin):
 
     @property
     def roots(self) -> list[DAGNode]:
-        """Required by TaskMixin"""
+        """Required by TaskMixin."""
         return [op for op, _ in self.iter_references()]
 
     @property
     def leaves(self) -> list[DAGNode]:
-        """Required by TaskMixin"""
+        """Required by TaskMixin."""
         return [op for op, _ in self.iter_references()]
 
     def set_upstream(
@@ -206,7 +206,7 @@ class XComArg(ResolveMixin, DependencyMixin):
         raise NotImplementedError()
 
     def __enter__(self):
-        if not self.operator._is_setup and not self.operator._is_teardown:
+        if not self.operator.is_setup and not self.operator.is_teardown:
             raise AirflowException("Only setup/teardown tasks can be used as context managers.")
         SetupTeardownContext.push_setup_teardown_task(self.operator)
         return self
@@ -243,7 +243,7 @@ class PlainXComArg(XComArg):
         return self.operator == other.operator and self.key == other.key
 
     def __getitem__(self, item: str) -> XComArg:
-        """Implements xcomresult['some_result_key']"""
+        """Implements xcomresult['some_result_key']."""
         if not isinstance(item, str):
             raise ValueError(f"XComArg only supports str lookup, received {type(item).__name__}")
         return PlainXComArg(operator=self.operator, key=item)
@@ -269,7 +269,7 @@ class PlainXComArg(XComArg):
 
     def __str__(self) -> str:
         """
-        Backward compatibility for old-style jinja used in Airflow Operators
+        Backward compatibility for old-style jinja used in Airflow Operators.
 
         **Example**: to use XComArg at BashOperator::
 
@@ -369,6 +369,13 @@ class PlainXComArg(XComArg):
         if not isinstance(result, ArgNotSet):
             return result
         if self.key == XCOM_RETURN_KEY:
+            return None
+        if getattr(self.operator, "multiple_outputs", False):
+            # If the operator is set to have multiple outputs and it was not executed,
+            # we should return "None" instead of showing an error. This is because when
+            # multiple outputs XComs are created, the XCom keys associated with them will have
+            # different names than the predefined "XCOM_RETURN_KEY" and won't be found.
+            # Therefore, it's better to return "None" like we did above where self.key==XCOM_RETURN_KEY.
             return None
         raise XComNotFound(ti.dag_id, task_id, self.key)
 
